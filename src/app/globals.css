@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-primary: #1F4D2B;
+  --color-primary-soft: #3F7E54;
+  --color-secondary: #6B4226;
+  --color-accent: #C99B5C;
+  --color-accent-soft: #E5C492;
+  --color-mist: #E8F0E1;
+  --color-fog: #F4F8F0;
+  --color-earth: #F5EDD6;
+  --color-moss: #5A7A4F;
+  --color-bark: #3A2A1B;
+  --color-dark: #0F1F12;
+  --color-white: #FAFDF7;
+
+  --font-playfair: var(--font-playfair);
+  --font-sans: var(--font-dm-sans);
+
+  --shadow-warm: 0 8px 32px rgba(31, 77, 43, 0.12);
+  --shadow-leaf: 0 20px 50px -20px rgba(31, 77, 43, 0.35);
+  --shadow-rain: 0 30px 60px -30px rgba(15, 31, 18, 0.45);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  body {
+    @apply bg-white text-dark font-sans antialiased;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-playfair;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50%  { transform: translate3d(20px, -15px, 0) rotate(8deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes leafFall {
+  0%   { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate3d(20vw, 110vh, 0) rotate(540deg); opacity: 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.gradient-leaf {
+  background: linear-gradient(135deg, #1F4D2B 0%, #3F7E54 50%, #5A7A4F 100%);
+}
+
+.gradient-mist {
+  background: linear-gradient(180deg, #F4F8F0 0%, #E8F0E1 100%);
+}
+
+.gradient-sunset {
+  background: linear-gradient(135deg, #C99B5C 0%, #E5C492 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

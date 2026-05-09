@@ -31,7 +31,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.*
+!.env.local.example
 
 # vercel
 .vercel
@@ -39,3 +41,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deploy artifacts & local backups
+/deploy_pkg/
+*.zip
+*.bak.*
+.next.bak.*
+node_modules.bak.*
+public.bak.*
+
+# brochure intermediate images (regeneratable from build.py)
+/brochure/img/
+
+# misc generated
+/.next/standalone/
+/.next/cache/
