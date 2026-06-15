@@ -25,10 +25,6 @@ export const metadata: Metadata = {
   },
 };
 
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import WhatsAppFloat from "@/components/WhatsAppFloat";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,10 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
       <body className="antialiased font-sans text-dark bg-white relative">
-        <Navbar />
         {children}
-        <Footer />
-        <WhatsAppFloat />
       </body>
     </html>
   );

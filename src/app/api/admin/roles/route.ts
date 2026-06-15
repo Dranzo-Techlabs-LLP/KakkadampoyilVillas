@@ -50,10 +50,16 @@ export async function PATCH(req: NextRequest) {
       await conn.beginTransaction();
       await conn.query(`DELETE FROM role_permissions WHERE role_id = :roleId`, { roleId: b.roleId });
       if (b.keys.length) {
+        // Pool uses namedPlaceholders — keep every token named (no mixing with `?`).
+        const named: Record<string, any> = { roleId: b.roleId };
+        const tokens = b.keys.map((k: string, i: number) => {
+          named[`k${i}`] = k;
+          return `:k${i}`;
+        });
         await conn.query(
           `INSERT INTO role_permissions (role_id, permission_id)
-           SELECT :roleId, id FROM permissions WHERE \`key\` IN (${b.keys.map(() => "?").join(",")})`,
-          [b.roleId, ...b.keys]
+           SELECT :roleId, id FROM permissions WHERE \`key\` IN (${tokens.join(",")})`,
+          named
         );
       }
       await conn.commit();
