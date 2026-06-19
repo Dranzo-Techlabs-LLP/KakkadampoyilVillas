@@ -51,10 +51,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const fields: string[] = [];
     const p: any = { id };
     const map: Record<string, string> = {
-      guestName: "guest_name", guestPhone: "guest_phone", guestEmail: "guest_email",
-      checkIn: "check_in", checkOut: "check_out", adults: "adults", children: "children",
-      status: "status", totalAmount: "total_amount", source: "source", notes: "notes",
-      villaId: "villa_id",
+      guestName: "guest_name", guestPhone: "guest_phone", guestPhone2: "guest_phone2",
+      guestEmail: "guest_email", checkIn: "check_in", checkOut: "check_out",
+      adults: "adults", children: "children", status: "status",
+      totalAmount: "total_amount", source: "source", notes: "notes", villaId: "villa_id",
     };
     for (const [k, col] of Object.entries(map)) {
       if (k in b) { fields.push(`${col} = :${k}`); p[k] = b[k]; }

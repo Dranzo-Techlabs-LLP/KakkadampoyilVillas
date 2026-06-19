@@ -119,9 +119,9 @@ export default function BookingsPage() {
 
 function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose: () => void; onSaved: () => void }) {
   const [f, setF] = useState<any>({
-    villaId: villas[0]?.id || "", guestName: "", guestPhone: "", guestEmail: "",
+    villaId: villas[0]?.id || "", guestName: "", guestPhone: "", guestPhone2: "", guestEmail: "",
     checkIn: "", checkOut: "", adults: 2, children: 0, status: "confirmed",
-    totalAmount: "", source: "direct", notes: "",
+    totalAmount: "", advance: "", advanceMethod: "cash", source: "direct", notes: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -133,7 +133,8 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
       await api("/api/admin/bookings", {
         method: "POST",
         body: JSON.stringify({ ...f, villaId: Number(f.villaId), adults: Number(f.adults),
-          children: Number(f.children), totalAmount: Number(f.totalAmount || 0), allowOverlap }),
+          children: Number(f.children), totalAmount: Number(f.totalAmount || 0),
+          advance: Number(f.advance || 0), allowOverlap }),
       });
       onSaved();
     } catch (e) {
@@ -151,6 +152,7 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Villa" required>
             <select value={f.villaId} onChange={(e) => set("villaId", e.target.value)} className={inputCls} required>
+              <option value="" disabled>Select a villa…</option>
               {villas.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           </Field>
@@ -164,7 +166,10 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
             <input value={f.guestName} onChange={(e) => set("guestName", e.target.value)} className={inputCls} required />
           </Field>
           <Field label="Phone">
-            <input value={f.guestPhone} onChange={(e) => set("guestPhone", e.target.value)} className={inputCls} />
+            <input value={f.guestPhone} onChange={(e) => set("guestPhone", e.target.value)} className={inputCls} placeholder="Primary contact" />
+          </Field>
+          <Field label="Alternate phone">
+            <input value={f.guestPhone2} onChange={(e) => set("guestPhone2", e.target.value)} className={inputCls} placeholder="Secondary contact" />
           </Field>
           <Field label="Email">
             <input type="email" value={f.guestEmail} onChange={(e) => set("guestEmail", e.target.value)} className={inputCls} />
@@ -186,6 +191,14 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
           </Field>
           <Field label="Total amount (₹)">
             <input type="number" min={0} value={f.totalAmount} onChange={(e) => set("totalAmount", e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Advance collected (₹)">
+            <input type="number" min={0} value={f.advance} onChange={(e) => set("advance", e.target.value)} className={inputCls} placeholder="0" />
+          </Field>
+          <Field label="Advance method">
+            <select value={f.advanceMethod} onChange={(e) => set("advanceMethod", e.target.value)} className={inputCls}>
+              {["cash","upi","bank","card","other"].map((m) => <option key={m} value={m} className="capitalize">{m}</option>)}
+            </select>
           </Field>
         </div>
         <Field label="Notes">

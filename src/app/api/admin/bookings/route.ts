@@ -62,16 +62,17 @@ export async function POST(req: NextRequest) {
     const ref = bookingRef();
     const res = await exec(
       `INSERT INTO bookings
-        (reference, villa_id, guest_name, guest_phone, guest_email, check_in, check_out,
+        (reference, villa_id, guest_name, guest_phone, guest_phone2, guest_email, check_in, check_out,
          adults, children, status, total_amount, source, notes, created_by)
        VALUES
-        (:ref, :villaId, :guestName, :guestPhone, :guestEmail, :checkIn, :checkOut,
+        (:ref, :villaId, :guestName, :guestPhone, :guestPhone2, :guestEmail, :checkIn, :checkOut,
          :adults, :children, :status, :totalAmount, :source, :notes, :uid)`,
       {
         ref,
         villaId: b.villaId,
         guestName: b.guestName,
         guestPhone: b.guestPhone ?? null,
+        guestPhone2: b.guestPhone2 ?? null,
         guestEmail: b.guestEmail ?? null,
         checkIn: b.checkIn,
         checkOut: b.checkOut,
@@ -84,6 +85,25 @@ export async function POST(req: NextRequest) {
         uid: user.id,
       }
     );
+
+    // Optional advance payment recorded at booking time → ledger entry
+    const advance = Number(b.advance);
+    if (advance > 0) {
+      await exec(
+        `INSERT INTO payments (booking_id, kind, amount, method, note, paid_on, created_by)
+         VALUES (:bid, 'payment', :amount, :method, 'Advance at booking', :paidOn, :uid)`,
+        {
+          bid: res.insertId,
+          amount: advance,
+          method: b.advanceMethod || "cash",
+          paidOn: b.checkIn && b.checkIn < new Date().toISOString().slice(0, 10)
+            ? new Date().toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+          uid: user.id,
+        }
+      );
+    }
+
     await audit(user.id, "create", "booking", res.insertId, ref);
     return json({ ok: true, id: res.insertId, reference: ref });
   });

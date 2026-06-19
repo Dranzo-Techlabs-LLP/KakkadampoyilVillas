@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   villa_id      INT NOT NULL,
   guest_name    VARCHAR(150) NOT NULL,
   guest_phone   VARCHAR(40) DEFAULT NULL,
+  guest_phone2  VARCHAR(40) DEFAULT NULL,
   guest_email   VARCHAR(190) DEFAULT NULL,
   check_in      DATE NOT NULL,
   check_out     DATE NOT NULL,

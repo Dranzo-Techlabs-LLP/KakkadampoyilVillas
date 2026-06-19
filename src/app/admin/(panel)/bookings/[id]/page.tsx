@@ -72,6 +72,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
             <Info k="Nights" v={nights(b.check_in?.slice(0,10), b.check_out?.slice(0,10))} />
             <Info k="Guests" v={`${b.adults} adults · ${b.children} children`} />
             <Info k="Phone" v={b.guest_phone || "—"} />
+            <Info k="Alternate phone" v={b.guest_phone2 || "—"} />
             <Info k="Email" v={b.guest_email || "—"} />
             {b.notes && <div className="col-span-2"><Info k="Notes" v={b.notes} /></div>}
             {b.cancel_reason && <div className="col-span-2"><Info k="Cancellation reason" v={b.cancel_reason} /></div>}
