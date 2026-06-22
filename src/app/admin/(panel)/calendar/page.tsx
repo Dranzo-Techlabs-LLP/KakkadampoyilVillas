@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { Card, Btn, api, fmtMoney } from "@/components/admin/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-function ymd(d: Date) { return d.toISOString().slice(0, 10); }
+// Local-timezone YYYY-MM-DD. toISOString() converts to UTC and shifts dates
+// back a day in IST (UTC+5:30), which made bookings render on the wrong cell.
+function ymd(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 function startOfMonth(y: number, m: number) { return new Date(y, m, 1); }
 function addMonths(y: number, m: number, delta: number) {
   const d = new Date(y, m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() };

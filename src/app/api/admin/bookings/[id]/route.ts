@@ -60,8 +60,44 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       if (k in b) { fields.push(`${col} = :${k}`); p[k] = b[k]; }
     }
     if (!fields.length) return err("Nothing to update");
+
+    // If villa or dates change, validate range + check overlap against other bookings.
+    if ("checkIn" in b || "checkOut" in b || "villaId" in b) {
+      const current = await q1<any>(
+        `SELECT villa_id, check_in, check_out FROM bookings WHERE id = :id`,
+        { id }
+      );
+      if (!current) return err("Not found", 404);
+      const villaId = "villaId" in b ? Number(b.villaId) : current.villa_id;
+      const checkIn = "checkIn" in b ? String(b.checkIn) : String(current.check_in).slice(0, 10);
+      const checkOut = "checkOut" in b ? String(b.checkOut) : String(current.check_out).slice(0, 10);
+      if (checkOut <= checkIn) return err("Check-out must be after check-in");
+      const clash = await q1<any>(
+        `SELECT id, reference FROM bookings
+          WHERE villa_id = :villaId AND status <> 'cancelled' AND id <> :id
+            AND check_in < :checkOut AND check_out > :checkIn
+          LIMIT 1`,
+        { id, villaId, checkIn, checkOut }
+      );
+      if (clash && !b.allowOverlap) {
+        return err(`Dates overlap booking ${clash.reference}`, 409);
+      }
+    }
+
     await exec(`UPDATE bookings SET ${fields.join(", ")} WHERE id = :id`, p);
     await audit(user.id, "update", "booking", Number(id));
+    return json({ ok: true });
+  });
+}
+
+// DELETE — hard-delete the booking (cascades to payments via FK).
+export async function DELETE(_req: NextRequest, { params }: Ctx) {
+  const { id } = await params;
+  return guard("bookings.manage", async (user) => {
+    const row = await q1<any>(`SELECT reference FROM bookings WHERE id = :id`, { id });
+    if (!row) return err("Not found", 404);
+    await exec(`DELETE FROM bookings WHERE id = :id`, { id });
+    await audit(user.id, "delete", "booking", Number(id), row.reference);
     return json({ ok: true });
   });
 }

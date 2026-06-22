@@ -19,6 +19,7 @@ function createPool() {
     namedPlaceholders: true,
     timezone: "+00:00",
     dateStrings: true,
+    connectTimeout: 30000,
   });
 }
 
