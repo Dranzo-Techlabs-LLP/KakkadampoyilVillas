@@ -5,7 +5,7 @@ export const BIZ = {
   name: "Kakkadampoyil Villas",
   address: "Foggy Mountain Park Road, Kakkadampoyil, Kerala",
   phone: "+91 85898 50641",
-  email: "officialkakkadampoyil@gmail.com",
+  email: "enquiry@kakkadampoyilvillas.com",
   website: "kakkadampoyilvillas.com",
 };
 

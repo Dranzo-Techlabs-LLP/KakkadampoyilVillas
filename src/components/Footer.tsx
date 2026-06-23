@@ -96,8 +96,8 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-accent shrink-0" />
-                <a href="mailto:officialkakkadampoyil@gmail.com" className="hover:text-accent transition-colors break-all">
-                  officialkakkadampoyil@gmail.com
+                <a href="mailto:enquiry@kakkadampoyilvillas.com" className="hover:text-accent transition-colors break-all">
+                  enquiry@kakkadampoyilvillas.com
                 </a>
               </li>
             </ul>

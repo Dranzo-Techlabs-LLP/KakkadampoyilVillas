@@ -143,7 +143,7 @@ export default function ContactSection() {
                   </span>
                 </a>
                 <a
-                  href="mailto:officialkakkadampoyil@gmail.com"
+                  href="mailto:enquiry@kakkadampoyilvillas.com"
                   className="group flex items-center gap-3 text-sm hover:text-accent transition-colors"
                 >
                   <span className="w-10 h-10 rounded-2xl glass flex items-center justify-center shrink-0">
@@ -151,7 +151,7 @@ export default function ContactSection() {
                   </span>
                   <span className="break-all">
                     <span className="block text-[10px] uppercase tracking-[0.2em] text-white/50">Email</span>
-                    officialkakkadampoyil@gmail.com
+                    enquiry@kakkadampoyilvillas.com
                   </span>
                 </a>
               </div>
