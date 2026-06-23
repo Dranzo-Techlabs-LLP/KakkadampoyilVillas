@@ -3,9 +3,16 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, Btn, Badge, Modal, Field, inputCls, fmtMoney, fmtDate, nights, api } from "@/components/admin/ui";
+import { Card, Btn, Badge, fmtMoney, fmtDate, nights, api } from "@/components/admin/ui";
 import { useCan } from "@/components/admin/AdminShell";
-import { ArrowLeft, Plus, RotateCcw, XCircle, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, RotateCcw, XCircle, Pencil, Trash2, FileText } from "lucide-react";
+import {
+  Info,
+  PayModal,
+  CancelModal,
+  EditBookingModal,
+  DeleteBookingModal,
+} from "./Modals";
 
 export default function BookingDetail({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -60,6 +67,12 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
         <div className="flex flex-wrap gap-2">
           {canManage && b.status === "confirmed" && <Btn variant="outline" size="sm" onClick={() => setStatus("checked_in")}>Check in</Btn>}
           {canManage && b.status === "checked_in" && <Btn variant="outline" size="sm" onClick={() => setStatus("completed")}>Mark completed</Btn>}
+          <Link
+            href={`/admin/bookings/${id}/invoice`}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            <FileText className="h-4 w-4" /> Invoice
+          </Link>
           {canManage && (
             <Btn variant="outline" size="sm" onClick={() => setEditModal(true)}><Pencil className="h-4 w-4" /> Edit</Btn>
           )}
@@ -157,219 +170,5 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
           onDeleted={() => router.push("/admin/bookings")} />
       )}
     </div>
-  );
-}
-
-function Info({ k, v }: { k: string; v: any }) {
-  return <div><dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt><dd className="mt-0.5 text-slate-800">{v}</dd></div>;
-}
-
-function PayModal({ kind, bookingId, onClose, onSaved }: { kind: "payment" | "refund"; bookingId: string; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ amount: "", method: "cash", reference: "", note: "", paidOn: new Date().toISOString().slice(0,10) });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true); setError("");
-    try {
-      await api(`/api/admin/bookings/${bookingId}/payments`, {
-        method: "POST", body: JSON.stringify({ ...f, kind, amount: Number(f.amount) }),
-      });
-      onSaved();
-    } catch (er) { setError(er instanceof Error ? er.message : "Failed"); setSaving(false); }
-  }
-
-  return (
-    <Modal open onClose={onClose} title={kind === "refund" ? "Record refund" : "Record payment"}>
-      <form onSubmit={save} className="space-y-4">
-        <Field label="Amount (₹)" required>
-          <input type="number" min={1} value={f.amount} onChange={(e) => set("amount", e.target.value)} className={inputCls} required autoFocus />
-        </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Method">
-            <select value={f.method} onChange={(e) => set("method", e.target.value)} className={inputCls}>
-              {["cash","upi","bank","card","other"].map((m) => <option key={m} value={m} className="capitalize">{m}</option>)}
-            </select>
-          </Field>
-          <Field label="Date">
-            <input type="date" value={f.paidOn} onChange={(e) => set("paidOn", e.target.value)} className={inputCls} />
-          </Field>
-        </div>
-        <Field label="Reference"><input value={f.reference} onChange={(e) => set("reference", e.target.value)} className={inputCls} placeholder="UPI ref, receipt no…" /></Field>
-        <Field label="Note"><input value={f.note} onChange={(e) => set("note", e.target.value)} className={inputCls} /></Field>
-        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
-          <Btn type="submit" variant={kind === "refund" ? "danger" : "primary"} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function CancelModal({ bookingId, onClose, onSaved }: { bookingId: string; onClose: () => void; onSaved: () => void }) {
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-  async function save() {
-    setSaving(true);
-    try { await api(`/api/admin/bookings/${bookingId}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled", cancelReason: reason }) }); onSaved(); }
-    catch { setSaving(false); }
-  }
-  return (
-    <Modal open onClose={onClose} title="Cancel booking">
-      <p className="mb-4 text-sm text-slate-600">This marks the booking cancelled and frees its dates. Record any refund separately.</p>
-      <Field label="Reason"><textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} placeholder="Guest cancelled, no-show…" /></Field>
-      <div className="mt-4 flex justify-end gap-2">
-        <Btn variant="outline" onClick={onClose}>Keep booking</Btn>
-        <Btn variant="danger" onClick={save} disabled={saving}>{saving ? "Cancelling…" : "Cancel booking"}</Btn>
-      </div>
-    </Modal>
-  );
-}
-
-function EditBookingModal({
-  booking, villas, bookingId, onClose, onSaved,
-}: {
-  booking: any; villas: any[]; bookingId: string; onClose: () => void; onSaved: () => void;
-}) {
-  const [f, setF] = useState<any>({
-    villaId: booking.villa_id,
-    guestName: booking.guest_name || "",
-    guestPhone: booking.guest_phone || "",
-    guestPhone2: booking.guest_phone2 || "",
-    guestEmail: booking.guest_email || "",
-    checkIn: String(booking.check_in || "").slice(0, 10),
-    checkOut: String(booking.check_out || "").slice(0, 10),
-    adults: booking.adults,
-    children: booking.children,
-    status: booking.status,
-    totalAmount: booking.total_amount,
-    source: booking.source || "direct",
-    notes: booking.notes || "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-
-  async function save(allowOverlap = false) {
-    setSaving(true); setError("");
-    try {
-      await api(`/api/admin/bookings/${bookingId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          ...f,
-          villaId: Number(f.villaId),
-          adults: Number(f.adults),
-          children: Number(f.children),
-          totalAmount: Number(f.totalAmount || 0),
-          allowOverlap,
-        }),
-      });
-      onSaved();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed";
-      if (msg.toLowerCase().includes("overlap") && !allowOverlap) {
-        if (confirm(msg + "\n\nSave anyway?")) return save(true);
-      }
-      setError(msg); setSaving(false);
-    }
-  }
-
-  const statuses = booking.status === "cancelled"
-    ? ["enquiry", "confirmed", "checked_in", "completed", "cancelled"]
-    : ["enquiry", "confirmed", "checked_in", "completed"];
-
-  return (
-    <Modal open onClose={onClose} title={`Edit booking · ${booking.reference}`} wide>
-      <form onSubmit={(e) => { e.preventDefault(); save(); }} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Villa" required>
-            <select value={f.villaId} onChange={(e) => set("villaId", e.target.value)} className={inputCls} required>
-              {villas.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select value={f.status} onChange={(e) => set("status", e.target.value)} className={inputCls}>
-              {statuses.map((s) => <option key={s} value={s} className="capitalize">{s.replace("_", " ")}</option>)}
-            </select>
-          </Field>
-          <Field label="Guest name" required>
-            <input value={f.guestName} onChange={(e) => set("guestName", e.target.value)} className={inputCls} required />
-          </Field>
-          <Field label="Phone">
-            <input value={f.guestPhone} onChange={(e) => set("guestPhone", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Alternate phone">
-            <input value={f.guestPhone2} onChange={(e) => set("guestPhone2", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Email">
-            <input type="email" value={f.guestEmail} onChange={(e) => set("guestEmail", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Source">
-            <input value={f.source} onChange={(e) => set("source", e.target.value)} className={inputCls} />
-          </Field>
-          <div />
-          <Field label="Check-in" required>
-            <input type="date" value={f.checkIn} onChange={(e) => set("checkIn", e.target.value)} className={inputCls} required />
-          </Field>
-          <Field label="Check-out" required>
-            <input type="date" value={f.checkOut} onChange={(e) => set("checkOut", e.target.value)} className={inputCls} required />
-          </Field>
-          <Field label="Adults">
-            <input type="number" min={1} value={f.adults} onChange={(e) => set("adults", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Children">
-            <input type="number" min={0} value={f.children} onChange={(e) => set("children", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Total amount (₹)">
-            <input type="number" min={0} value={f.totalAmount} onChange={(e) => set("totalAmount", e.target.value)} className={inputCls} />
-          </Field>
-        </div>
-        <Field label="Notes">
-          <textarea rows={2} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={inputCls} />
-        </Field>
-        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
-          <Btn type="submit" disabled={saving}>{saving ? "Saving…" : "Save changes"}</Btn>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function DeleteBookingModal({
-  reference, bookingId, onClose, onDeleted,
-}: {
-  reference: string; bookingId: string; onClose: () => void; onDeleted: () => void;
-}) {
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
-  async function del() {
-    setDeleting(true); setError("");
-    try {
-      await api(`/api/admin/bookings/${bookingId}`, { method: "DELETE" });
-      onDeleted();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-      setDeleting(false);
-    }
-  }
-  return (
-    <Modal open onClose={onClose} title="Delete booking">
-      <p className="text-sm text-slate-700">
-        Permanently delete booking <span className="font-mono font-semibold">{reference}</span>?
-      </p>
-      <p className="mt-2 text-sm text-red-600">
-        This also deletes all linked payments and refunds. This cannot be undone.
-        Consider <em>cancelling</em> instead if you want to keep the record.
-      </p>
-      {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
-      <div className="mt-5 flex justify-end gap-2">
-        <Btn variant="outline" onClick={onClose}>Keep booking</Btn>
-        <Btn variant="danger" onClick={del} disabled={deleting}>{deleting ? "Deleting…" : "Delete permanently"}</Btn>
-      </div>
-    </Modal>
   );
 }
