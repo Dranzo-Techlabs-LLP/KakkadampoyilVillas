@@ -95,10 +95,10 @@ export default function LocationSection() {
                 <div>
                   <h4 className="font-playfair font-semibold text-dark text-lg">Email</h4>
                   <a
-                    href="mailto:enquiry@kakkadampoyilvillas.com"
+                    href="mailto:contact@kakkadampoyilvillas.com"
                     className="text-dark/70 hover:text-primary transition-colors"
                   >
-                    enquiry@kakkadampoyilvillas.com
+                    contact@kakkadampoyilvillas.com
                   </a>
                 </div>
               </div>
