@@ -54,21 +54,24 @@ function p(children: TextRun[], opts: Partial<{ align: typeof AlignmentType[keyo
   });
 }
 
-const noBorder = {
+type BorderSide = { style: (typeof BorderStyle)[keyof typeof BorderStyle]; size: number; color: string };
+type CellBorders = { top: BorderSide; bottom: BorderSide; left: BorderSide; right: BorderSide };
+
+const noBorder: CellBorders = {
   top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
   bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
   left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
   right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
 };
 
-const lightBottom = {
+const lightBottom: CellBorders = {
   top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
   bottom: { style: BorderStyle.SINGLE, size: 4, color: SLATE_200 },
   left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
   right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
 };
 
-function cell(children: Paragraph[], opts: Partial<{ widthPct: number; borders: typeof noBorder; align: "left" | "right" | "center" }> = {}) {
+function cell(children: Paragraph[], opts: Partial<{ widthPct: number; borders: CellBorders; align: "left" | "right" | "center" }> = {}) {
   return new TableCell({
     width: opts.widthPct ? { size: opts.widthPct, type: WidthType.PERCENTAGE } : undefined,
     borders: opts.borders ?? noBorder,
