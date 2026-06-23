@@ -1,45 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
-import { q, q1 } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import PrintActions from "./PrintActions";
+import { BIZ, fmtMoney, fmtDate, loadInvoice, todayLocal } from "./_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Business identity that prints at the top of the invoice. Update as needed.
-const BIZ = {
-  name: "Kakkadampoyil Villas",
-  address: "Foggy Mountain Park Road, Kakkadampoyil, Kerala",
-  phone: "+91 85898 50641",
-  email: "officialkakkadampoyil@gmail.com",
-  website: "kakkadampoyilvillas.com",
-};
-
-function fmtMoney(n: number | string | null | undefined) {
-  const v = Number(n || 0);
-  return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-}
-
-function fmtDate(d: string | null | undefined) {
-  if (!d) return "—";
-  const s = String(d).slice(0, 10);
-  const [y, m, day] = s.split("-");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  if (!y || !m || !day) return s;
-  return `${day} ${months[Number(m) - 1]} ${y}`;
-}
-
-function nightsBetween(checkIn: string, checkOut: string) {
-  const a = new Date(checkIn + "T00:00:00");
-  const b = new Date(checkOut + "T00:00:00");
-  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
-}
-
-function todayLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,32 +19,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const booking = await q1<any>(
-    `SELECT b.*, v.name AS villaName, v.color
-       FROM bookings b
-       JOIN villas v ON v.id = b.villa_id
-      WHERE b.id = :id`,
-    { id }
-  );
-  if (!booking) notFound();
-
-  const payments = await q<any>(
-    `SELECT id, kind, amount, method, reference, note,
-            paid_on AS paidOn, created_at AS createdAt
-       FROM payments WHERE booking_id = :id ORDER BY paid_on, id`,
-    { id }
-  );
-
-  const checkIn = String(booking.check_in).slice(0, 10);
-  const checkOut = String(booking.check_out).slice(0, 10);
-  const nights = nightsBetween(checkIn, checkOut);
-  const total = Number(booking.total_amount) || 0;
-  const ratePerNight = nights > 0 ? total / nights : total;
-  const paid = payments.reduce(
-    (s, p) => s + (p.kind === "payment" ? Number(p.amount) : -Number(p.amount)),
-    0
-  );
-  const balance = total - paid;
+  const data = await loadInvoice(id);
+  if (!data) notFound();
+  const { booking, payments, checkIn, checkOut, nights, total, ratePerNight, paid, balance } = data;
 
   const invoiceNumber = booking.reference;
   const issued = todayLocal();
@@ -86,7 +29,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
       <div className="mx-auto max-w-[820px] bg-white shadow-sm print:max-w-none print:shadow-none">
-        <PrintActions backHref={`/admin/bookings/${id}`} />
+        <PrintActions backHref={`/admin/bookings/${id}`} bookingId={id} />
 
         {/* A4-ish content area */}
         <article className="px-10 py-10 text-slate-900 print:px-12 print:py-10">
