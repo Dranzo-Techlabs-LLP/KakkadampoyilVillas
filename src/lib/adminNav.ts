@@ -16,4 +16,5 @@ export const NAV: NavItem[] = [
   { href: "/admin/villas",     label: "Villas",     icon: "Home",            perm: "villas.view" },
   { href: "/admin/users",      label: "Users",      icon: "Users",           perm: "users.view" },
   { href: "/admin/roles",      label: "Roles & Rights", icon: "ShieldCheck", perm: "users.view" },
+  { href: "/admin/invoice",    label: "Invoice",    icon: "FileText",        perm: "invoices.manage" },
 ];

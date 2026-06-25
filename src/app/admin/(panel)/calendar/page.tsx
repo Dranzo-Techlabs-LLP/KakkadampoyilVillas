@@ -96,10 +96,18 @@ export default function CalendarPage() {
                 <div className="space-y-0.5">
                   {dayBookings.slice(0, 3).map((b) => (
                     <button key={b.id} onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                      title={`${b.guestName} · ${b.villaName} · ${fmtMoney(b.totalAmount)}`}
-                      className="block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium text-white hover:opacity-90"
+                      title={`${b.guestName} · ${b.villaName} · ${fmtMoney(b.totalAmount)}${b.status === "hold" ? " · On hold" : ""}`}
+                      className="flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left text-[11px] font-medium text-white hover:opacity-90"
                       style={{ background: b.color }}>
-                      {b.guestName}
+                      <span className="truncate flex-1">{b.guestName}</span>
+                      {b.status === "hold" && (
+                        <span
+                          className="shrink-0 rounded-sm bg-white/25 px-1 text-[9px] font-bold leading-tight tracking-wide"
+                          aria-label="On hold"
+                        >
+                          H
+                        </span>
+                      )}
                     </button>
                   ))}
                   {dayBookings.length > 3 && <div className="px-1 text-[10px] text-slate-400">+{dayBookings.length - 3} more</div>}

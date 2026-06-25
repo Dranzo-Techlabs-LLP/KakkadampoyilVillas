@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   Document,
   Packer,
@@ -7,6 +9,7 @@ import {
   TableRow,
   TableCell,
   TextRun,
+  ImageRun,
   HeadingLevel,
   AlignmentType,
   WidthType,
@@ -24,6 +27,18 @@ import {
 } from "@/app/admin/bookings/[id]/invoice/_lib";
 
 export const runtime = "nodejs";
+
+// Cache the logo bytes per process — single read on cold start.
+let logoCache: Buffer | null = null;
+async function getLogoBytes(): Promise<Buffer | null> {
+  if (logoCache) return logoCache;
+  try {
+    logoCache = await readFile(join(process.cwd(), "public", "images", "logo.jpg"));
+    return logoCache;
+  } catch {
+    return null;
+  }
+}
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -79,49 +94,64 @@ function cell(children: Paragraph[], opts: Partial<{ widthPct: number; borders: 
   });
 }
 
-function buildDocument(data: InvoiceData) {
+async function buildDocument(data: InvoiceData) {
   const { booking, payments, checkIn, checkOut, nights, total, ratePerNight, paid, balance } = data;
   const invoiceNumber = booking.reference;
   const issued = todayLocal();
+  const logoBytes = await getLogoBytes();
 
   const sectionChildren: (Paragraph | Table)[] = [];
 
-  // Header — two-column table: business identity (left) + invoice meta (right)
+  // Header — 3-column: logo (if available) | business identity | invoice meta.
+  const logoCell = cell(
+    logoBytes
+      ? [
+          new Paragraph({
+            children: [
+              new ImageRun({
+                type: "jpg",
+                data: logoBytes,
+                transformation: { width: 64, height: 64 },
+              }),
+            ],
+          }),
+        ]
+      : [p([txt("", { size: 4 })])],
+    { widthPct: 14 }
+  );
+  const bizCell = cell(
+    [
+      p([txt(BIZ.name, { bold: true, color: EMERALD, size: 32 })]),
+      p([txt(BIZ.address, { color: SLATE_600, size: 18 })], { spacingBefore: 40 }),
+      p([txt(`${BIZ.phone} · ${BIZ.email}`, { color: SLATE_600, size: 18 })]),
+      p([txt(BIZ.website, { color: SLATE_600, size: 18 })]),
+    ],
+    { widthPct: 51 }
+  );
+  const metaCell = cell(
+    [
+      p([txt("INVOICE", { bold: true, color: SLATE_400, size: 20 })], { align: AlignmentType.RIGHT }),
+      p([txt(invoiceNumber, { bold: true, color: SLATE_900, size: 24 })], { align: AlignmentType.RIGHT, spacingBefore: 40 }),
+      p(
+        [
+          txt("Issued: ", { color: SLATE_600, size: 18 }),
+          txt(fmtDate(issued), { color: SLATE_900, size: 18 }),
+        ],
+        { align: AlignmentType.RIGHT, spacingBefore: 80 }
+      ),
+      ...(booking.status === "cancelled"
+        ? [p([txt("CANCELLED", { bold: true, color: RED, size: 20 })], { align: AlignmentType.RIGHT, spacingBefore: 80 })]
+        : booking.status === "hold"
+        ? [p([txt("ON HOLD", { bold: true, color: AMBER, size: 20 })], { align: AlignmentType.RIGHT, spacingBefore: 80 })]
+        : []),
+    ],
+    { widthPct: 35 }
+  );
+
   sectionChildren.push(
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [
-        new TableRow({
-          children: [
-            cell(
-              [
-                p([txt(BIZ.name, { bold: true, color: EMERALD, size: 32 })]),
-                p([txt(BIZ.address, { color: SLATE_600, size: 18 })], { spacingBefore: 40 }),
-                p([txt(`${BIZ.phone} · ${BIZ.email}`, { color: SLATE_600, size: 18 })]),
-                p([txt(BIZ.website, { color: SLATE_600, size: 18 })]),
-              ],
-              { widthPct: 65 }
-            ),
-            cell(
-              [
-                p([txt("INVOICE", { bold: true, color: SLATE_400, size: 20 })], { align: AlignmentType.RIGHT }),
-                p([txt(invoiceNumber, { bold: true, color: SLATE_900, size: 24 })], { align: AlignmentType.RIGHT, spacingBefore: 40 }),
-                p(
-                  [
-                    txt("Issued: ", { color: SLATE_600, size: 18 }),
-                    txt(fmtDate(issued), { color: SLATE_900, size: 18 }),
-                  ],
-                  { align: AlignmentType.RIGHT, spacingBefore: 80 }
-                ),
-                ...(booking.status === "cancelled"
-                  ? [p([txt("CANCELLED", { bold: true, color: RED, size: 20 })], { align: AlignmentType.RIGHT, spacingBefore: 80 })]
-                  : []),
-              ],
-              { widthPct: 35 }
-            ),
-          ],
-        }),
-      ],
+      rows: [new TableRow({ children: [logoCell, bizCell, metaCell] })],
     })
   );
 
@@ -389,7 +419,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const data = await loadInvoice(id);
     if (!data) return err("Not found", 404);
 
-    const doc = buildDocument(data);
+    const doc = await buildDocument(data);
     const buffer = await Packer.toBuffer(doc);
 
     const filename = `invoice-${data.booking.reference}.docx`;

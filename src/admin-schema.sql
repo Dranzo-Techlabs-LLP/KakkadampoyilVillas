@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   check_out     DATE NOT NULL,
   adults        INT NOT NULL DEFAULT 1,
   children      INT NOT NULL DEFAULT 0,
-  status        ENUM('enquiry','confirmed','checked_in','completed','cancelled') NOT NULL DEFAULT 'enquiry',
+  status        ENUM('enquiry','hold','confirmed','checked_in','completed','cancelled') NOT NULL DEFAULT 'enquiry',
   total_amount  DECIMAL(10,2) NOT NULL DEFAULT 0,
   source        VARCHAR(60) DEFAULT 'direct',
   notes         TEXT DEFAULT NULL,
@@ -83,6 +83,18 @@ CREATE TABLE IF NOT EXISTS bookings (
   INDEX idx_status (status),
   INDEX idx_check_in (check_in)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ───────────────────────────────── invoice settings (single row)
+CREATE TABLE IF NOT EXISTS invoice_settings (
+  id          TINYINT NOT NULL DEFAULT 1 PRIMARY KEY,
+  prefix      VARCHAR(20) NOT NULL DEFAULT 'KV-',
+  next_number INT NOT NULL DEFAULT 1,
+  padding     TINYINT NOT NULL DEFAULT 5,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CHECK (id = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO invoice_settings (id, prefix, next_number, padding) VALUES (1, 'KV-', 1, 5);
 
 -- ───────────────────────────────── payments (payments + refunds)
 CREATE TABLE IF NOT EXISTS payments (
@@ -145,7 +157,8 @@ INSERT IGNORE INTO permissions (`key`, label, category) VALUES
   ('villas.view',      'View villas',             'Villas'),
   ('villas.manage',    'Edit villa settings',     'Villas'),
   ('users.view',       'View users',              'Administration'),
-  ('users.manage',     'Add / edit users & rights','Administration');
+  ('users.manage',     'Add / edit users & rights','Administration'),
+  ('invoices.manage',  'Edit invoice number series','Administration');
 
 -- ───────────────────────────────── seed roles
 INSERT IGNORE INTO roles (name, description, is_system) VALUES

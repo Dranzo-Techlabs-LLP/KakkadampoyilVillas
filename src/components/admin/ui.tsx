@@ -87,6 +87,7 @@ export const inputCls =
 export function Badge({ status }: { status: string }) {
   const map: Record<string, string> = {
     enquiry:   "bg-slate-100 text-slate-700",
+    hold:      "bg-amber-100 text-amber-800",
     confirmed: "bg-emerald-100 text-emerald-800",
     checked_in:"bg-blue-100 text-blue-800",
     completed: "bg-violet-100 text-violet-800",

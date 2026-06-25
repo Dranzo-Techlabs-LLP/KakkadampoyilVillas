@@ -60,7 +60,7 @@ export default function BookingsPage() {
           </select>
           <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputCls + " max-w-[160px]"}>
             <option value="">All status</option>
-            {["enquiry","confirmed","checked_in","completed","cancelled"].map((s) =>
+            {["enquiry","hold","confirmed","checked_in","completed","cancelled"].map((s) =>
               <option key={s} value={s} className="capitalize">{s.replace("_"," ")}</option>)}
           </select>
         </div>
@@ -158,7 +158,7 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
           </Field>
           <Field label="Status">
             <select value={f.status} onChange={(e) => set("status", e.target.value)} className={inputCls}>
-              {["enquiry","confirmed","checked_in","completed"].map((s) =>
+              {["enquiry","hold","confirmed","checked_in","completed"].map((s) =>
                 <option key={s} value={s} className="capitalize">{s.replace("_"," ")}</option>)}
             </select>
           </Field>

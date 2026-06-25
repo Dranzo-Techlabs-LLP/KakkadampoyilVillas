@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePermission, type SessionUser } from "./auth";
+import { pool } from "./db";
 
 export function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
@@ -21,12 +22,34 @@ export async function guard(
   return fn(res.user);
 }
 
-/** Generate a short booking reference like KV-7F3A9. */
-export function bookingRef() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let s = "";
-  for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return `KV-${s}`;
+/**
+ * Allocate the next booking reference from the configured series.
+ * Atomic: takes a row lock on invoice_settings, reads the next number,
+ * increments and commits in one transaction so concurrent bookings get
+ * distinct sequential refs.
+ */
+export async function bookingRef(): Promise<string> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT prefix, next_number, padding FROM invoice_settings WHERE id = 1 FOR UPDATE`
+    );
+    const row = (rows as Array<{ prefix: string; next_number: number; padding: number }>)[0];
+    if (!row) {
+      await conn.rollback();
+      throw new Error("invoice_settings row missing — run scripts/migrate.mjs");
+    }
+    await conn.query(`UPDATE invoice_settings SET next_number = next_number + 1 WHERE id = 1`);
+    await conn.commit();
+    const padded = String(row.next_number).padStart(row.padding, "0");
+    return `${row.prefix}${padded}`;
+  } catch (e) {
+    try { await conn.rollback(); } catch { /* */ }
+    throw e;
+  } finally {
+    conn.release();
+  }
 }
 
 export function toCsv(rows: Record<string, any>[]): string {

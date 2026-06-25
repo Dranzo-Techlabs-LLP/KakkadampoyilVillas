@@ -6,13 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, createContext, useContext, ReactNode } from "react";
 import {
   LayoutDashboard, Calendar, BookMarked, Wallet, Receipt, FileBarChart,
-  Home, Users, ShieldCheck, LogOut, Menu, X,
+  Home, Users, ShieldCheck, LogOut, Menu, FileText,
 } from "lucide-react";
 import { NAV } from "@/lib/adminNav";
 import { api } from "./ui";
 
 const icons: Record<string, any> = {
-  LayoutDashboard, Calendar, BookMarked, Wallet, Receipt, FileBarChart, Home, Users, ShieldCheck,
+  LayoutDashboard, Calendar, BookMarked, Wallet, Receipt, FileBarChart, Home, Users, ShieldCheck, FileText,
 };
 
 export interface ShellUser {

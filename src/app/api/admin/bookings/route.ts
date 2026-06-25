@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       return err(`Dates overlap booking ${clash.reference}`, 409);
     }
 
-    const ref = bookingRef();
+    const ref = await bookingRef();
     const res = await exec(
       `INSERT INTO bookings
         (reference, villa_id, guest_name, guest_phone, guest_phone2, guest_email, check_in, check_out,

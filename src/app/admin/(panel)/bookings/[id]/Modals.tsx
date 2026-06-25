@@ -199,8 +199,8 @@ export function EditBookingModal({
   }
 
   const statuses = booking.status === "cancelled"
-    ? ["enquiry", "confirmed", "checked_in", "completed", "cancelled"]
-    : ["enquiry", "confirmed", "checked_in", "completed"];
+    ? ["enquiry", "hold", "confirmed", "checked_in", "completed", "cancelled"]
+    : ["enquiry", "hold", "confirmed", "checked_in", "completed"];
 
   return (
     <Modal open onClose={onClose} title={`Edit booking · ${booking.reference}`} wide>
