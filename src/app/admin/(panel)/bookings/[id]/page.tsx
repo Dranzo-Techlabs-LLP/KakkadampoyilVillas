@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Btn, Badge, fmtMoney, fmtDate, nights, api } from "@/components/admin/ui";
 import { useCan } from "@/components/admin/AdminShell";
-import { ArrowLeft, Plus, RotateCcw, XCircle, Pencil, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Plus, RotateCcw, XCircle, Pencil, Trash2, FileText, Receipt } from "lucide-react";
 import {
   Info,
   PayModal,
   CancelModal,
   EditBookingModal,
   DeleteBookingModal,
+  BookingExpenseModal,
 } from "./Modals";
 
 export default function BookingDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
   const canManage = useCan("bookings.manage");
   const canCancel = useCan("bookings.cancel");
   const canPay = useCan("payments.manage");
+  const canExpense = useCan("expenses.manage");
 
   const [data, setData] = useState<any>(null);
   const [villas, setVillas] = useState<any[]>([]);
@@ -28,6 +30,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
   const [cancelModal, setCancelModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [expenseModal, setExpenseModal] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -44,6 +47,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
   const payments = data.payments || [];
   const paid = payments.reduce((s: number, p: any) => s + (p.kind === "payment" ? Number(p.amount) : -Number(p.amount)), 0);
   const balance = Number(b.total_amount) - paid;
+  const b2bTotal = payments.reduce((s: number, p: any) => s + (p.kind === "payment" ? Number(p.b2bAmount || 0) : 0), 0);
 
   async function setStatus(status: string) {
     await api(`/api/admin/bookings/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
@@ -109,18 +113,32 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
           <h3 className="mb-4 text-sm font-semibold text-slate-700">Financials</h3>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-slate-500">Total</span><span className="font-semibold tabular-nums">{fmtMoney(b.total_amount)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Paid</span><span className="tabular-nums text-emerald-700">{fmtMoney(paid)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Received</span><span className="tabular-nums text-emerald-700">{fmtMoney(paid)}</span></div>
+            {b2bTotal > 0 && (
+              <div className="flex justify-between"><span className="text-slate-500">B2B commission</span><span className="tabular-nums text-purple-600">−{fmtMoney(b2bTotal)}</span></div>
+            )}
             <div className="flex justify-between border-t border-slate-100 pt-3">
               <span className="font-medium">Balance</span>
               <span className={`font-semibold tabular-nums ${balance > 0 ? "text-amber-600" : "text-emerald-700"}`}>{fmtMoney(balance)}</span>
             </div>
+            {b2bTotal > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Net revenue (excl. B2B)</span>
+                <span className="tabular-nums text-slate-600">{fmtMoney(paid - b2bTotal)}</span>
+              </div>
+            )}
           </div>
-          {canPay && b.status !== "cancelled" && (
-            <div className="mt-5 flex gap-2">
-              <Btn size="sm" onClick={() => setPayModal("payment")}><Plus className="h-4 w-4" /> Payment</Btn>
-              <Btn size="sm" variant="outline" onClick={() => setPayModal("refund")}><RotateCcw className="h-4 w-4" /> Refund</Btn>
-            </div>
-          )}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {canPay && b.status !== "cancelled" && (
+              <>
+                <Btn size="sm" onClick={() => setPayModal("payment")}><Plus className="h-4 w-4" /> Payment</Btn>
+                <Btn size="sm" variant="outline" onClick={() => setPayModal("refund")}><RotateCcw className="h-4 w-4" /> Refund</Btn>
+              </>
+            )}
+            {canExpense && (
+              <Btn size="sm" variant="outline" onClick={() => setExpenseModal(true)}><Receipt className="h-4 w-4" /> Expense</Btn>
+            )}
+          </div>
         </Card>
       </div>
 
@@ -132,7 +150,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
-              <tr><th className="px-5 py-2.5">Date</th><th className="px-5 py-2.5">Type</th><th className="px-5 py-2.5">Method</th><th className="px-5 py-2.5">Reference</th><th className="px-5 py-2.5 text-right">Amount</th></tr>
+              <tr><th className="px-5 py-2.5">Date</th><th className="px-5 py-2.5">Type</th><th className="px-5 py-2.5">Method</th><th className="px-5 py-2.5">Reference</th><th className="px-5 py-2.5 text-right">B2B</th><th className="px-5 py-2.5 text-right">Amount</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {payments.map((p: any) => (
@@ -141,6 +159,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
                   <td className="px-5 py-2.5"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.kind === "refund" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-800"}`}>{p.kind}</span></td>
                   <td className="px-5 py-2.5 capitalize">{p.method}</td>
                   <td className="px-5 py-2.5 text-slate-500">{p.reference || "—"}</td>
+                  <td className="px-5 py-2.5 text-right tabular-nums text-purple-600">{Number(p.b2bAmount) > 0 ? fmtMoney(p.b2bAmount) : "—"}</td>
                   <td className={`px-5 py-2.5 text-right tabular-nums font-medium ${p.kind === "refund" ? "text-red-600" : "text-emerald-700"}`}>
                     {p.kind === "refund" ? "−" : "+"}{fmtMoney(p.amount)}
                   </td>
@@ -168,6 +187,11 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
         <DeleteBookingModal reference={b.reference} bookingId={id}
           onClose={() => setDeleteModal(false)}
           onDeleted={() => router.push("/admin/bookings")} />
+      )}
+      {expenseModal && (
+        <BookingExpenseModal bookingId={id} villaName={b.villaName} reference={b.reference}
+          onClose={() => setExpenseModal(false)}
+          onSaved={() => { setExpenseModal(false); load(); }} />
       )}
     </div>
   );

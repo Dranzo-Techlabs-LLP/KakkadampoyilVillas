@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { q, exec } from "@/lib/db";
+import { q, q1, exec } from "@/lib/db";
 import { guard, json, err } from "@/lib/api";
 import { audit } from "@/lib/audit";
 
@@ -14,10 +14,15 @@ export async function GET(req: NextRequest) {
     if (sp.get("from")) { where.push("e.spent_on >= :from"); p.from = sp.get("from"); }
     if (sp.get("to")) { where.push("e.spent_on <= :to"); p.to = sp.get("to"); }
 
+    if (sp.get("booking")) { where.push("e.booking_id = :booking"); p.booking = Number(sp.get("booking")); }
+
     const expenses = await q(
-      `SELECT e.id, e.villa_id AS villaId, v.name AS villaName, e.category, e.amount,
+      `SELECT e.id, e.villa_id AS villaId, v.name AS villaName, e.booking_id AS bookingId,
+              bk.reference AS bookingRef, e.category, e.amount,
               e.description, e.spent_on AS spentOn, e.created_at AS createdAt
-         FROM expenses e LEFT JOIN villas v ON v.id = e.villa_id
+         FROM expenses e
+         LEFT JOIN villas v ON v.id = e.villa_id
+         LEFT JOIN bookings bk ON bk.id = e.booking_id
         WHERE ${where.join(" AND ")}
         ORDER BY e.spent_on DESC, e.id DESC
         LIMIT 500`,
@@ -33,11 +38,20 @@ export async function POST(req: NextRequest) {
     if (!b) return err("Invalid body");
     const amount = Number(b.amount);
     if (!(amount > 0)) return err("Amount must be positive");
+    // If a booking is linked but no villa given, inherit the booking's villa.
+    let villaId = b.villaId || null;
+    const bookingId = b.bookingId || null;
+    if (bookingId && !villaId) {
+      const bk = await q1<any>(`SELECT villa_id AS villaId FROM bookings WHERE id = :id`, { id: bookingId });
+      villaId = bk?.villaId ?? null;
+    }
+
     const res = await exec(
-      `INSERT INTO expenses (villa_id, category, amount, description, spent_on, created_by)
-       VALUES (:villaId, :category, :amount, :description, :spentOn, :uid)`,
+      `INSERT INTO expenses (villa_id, booking_id, category, amount, description, spent_on, created_by)
+       VALUES (:villaId, :bookingId, :category, :amount, :description, :spentOn, :uid)`,
       {
-        villaId: b.villaId || null,
+        villaId,
+        bookingId,
         category: b.category ?? "General",
         amount,
         description: b.description ?? null,

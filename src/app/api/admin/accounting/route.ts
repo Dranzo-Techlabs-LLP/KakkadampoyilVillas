@@ -16,19 +16,24 @@ export async function GET(req: NextRequest) {
     const villaExp = villa ? "AND e.villa_id = :villa" : "";
     const p: any = { from, to, villa };
 
-    // Revenue from payments (collected money), net of refunds
+    // Revenue from payments (collected money), net of refunds, plus the B2B
+    // commission slice that is passed through to partners.
     const rev = await q1<any>(
       `SELECT
          COALESCE(SUM(CASE WHEN pm.kind='payment' THEN pm.amount ELSE 0 END),0) AS collected,
-         COALESCE(SUM(CASE WHEN pm.kind='refund'  THEN pm.amount ELSE 0 END),0) AS refunded
+         COALESCE(SUM(CASE WHEN pm.kind='refund'  THEN pm.amount ELSE 0 END),0) AS refunded,
+         COALESCE(SUM(CASE WHEN pm.kind='payment' THEN pm.b2b_amount ELSE 0 END),0) AS b2b
        FROM payments pm JOIN bookings b ON b.id = pm.booking_id
        WHERE pm.paid_on BETWEEN :from AND :to ${villaPay}`,
       p
     );
 
+    // Operating expenses exclude auto-booked B2B commission (already removed
+    // from revenue) to avoid double counting.
     const exp = await q1<any>(
       `SELECT COALESCE(SUM(e.amount),0) AS total
-         FROM expenses e WHERE e.spent_on BETWEEN :from AND :to ${villaExp}`,
+         FROM expenses e
+        WHERE e.spent_on BETWEEN :from AND :to AND e.category <> 'B2B Commission' ${villaExp}`,
       p
     );
 
@@ -41,14 +46,17 @@ export async function GET(req: NextRequest) {
       p
     );
 
-    // Per-villa breakdown
+    // Per-villa breakdown — revenue net of refunds AND B2B; expenses exclude B2B.
     const perVilla = await q(
       `SELECT v.id, v.name, v.color,
-              COALESCE((SELECT SUM(CASE WHEN pm.kind='payment' THEN pm.amount ELSE -pm.amount END)
+              COALESCE((SELECT SUM(CASE WHEN pm.kind='payment' THEN pm.amount - pm.b2b_amount ELSE -pm.amount END)
                           FROM payments pm JOIN bookings b ON b.id = pm.booking_id
                          WHERE b.villa_id = v.id AND pm.paid_on BETWEEN :from AND :to),0) AS revenue,
               COALESCE((SELECT SUM(e.amount) FROM expenses e
-                         WHERE e.villa_id = v.id AND e.spent_on BETWEEN :from AND :to),0) AS expenses,
+                         WHERE e.villa_id = v.id AND e.spent_on BETWEEN :from AND :to
+                           AND e.category <> 'B2B Commission'),0) AS expenses,
+              COALESCE((SELECT SUM(pm.b2b_amount) FROM payments pm JOIN bookings b ON b.id = pm.booking_id
+                         WHERE b.villa_id = v.id AND pm.kind='payment' AND pm.paid_on BETWEEN :from AND :to),0) AS b2b,
               (SELECT COUNT(*) FROM bookings b
                  WHERE b.villa_id = v.id AND b.status <> 'cancelled'
                    AND b.check_in BETWEEN :from AND :to) AS bookings
@@ -58,15 +66,18 @@ export async function GET(req: NextRequest) {
 
     const collected = Number(rev?.collected || 0);
     const refunded = Number(rev?.refunded || 0);
+    const b2b = Number(rev?.b2b || 0);
     const expenses = Number(exp?.total || 0);
-    const netRevenue = collected - refunded;
+    // Revenue excludes the B2B pass-through and refunds.
+    const netRevenue = collected - refunded - b2b;
 
     return json({
       summary: {
-        collected,
+        collected,        // gross received from guests
         refunded,
-        netRevenue,
-        expenses,
+        b2b,              // partner commission (also in expense ledger)
+        netRevenue,       // collected − refunds − B2B
+        expenses,         // operating expenses (excludes B2B)
         profit: netRevenue - expenses,
         contracted: Number(contracted?.total || 0),
         bookingCount: Number(contracted?.count || 0),

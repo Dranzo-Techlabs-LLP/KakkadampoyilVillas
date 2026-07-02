@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS payments (
   booking_id INT NOT NULL,
   kind       ENUM('payment','refund') NOT NULL DEFAULT 'payment',
   amount     DECIMAL(10,2) NOT NULL,
+  b2b_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   method     VARCHAR(40) NOT NULL DEFAULT 'cash',
   reference  VARCHAR(120) DEFAULT NULL,
   note       VARCHAR(255) DEFAULT NULL,
@@ -118,6 +119,7 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS expenses (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   villa_id    INT DEFAULT NULL,
+  booking_id  INT DEFAULT NULL,
   category    VARCHAR(60) NOT NULL DEFAULT 'General',
   amount      DECIMAL(10,2) NOT NULL,
   description VARCHAR(255) DEFAULT NULL,
@@ -125,8 +127,10 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_by  INT DEFAULT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (villa_id)   REFERENCES villas(id) ON DELETE SET NULL,
+  FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES users(id),
   INDEX idx_villa (villa_id),
+  INDEX idx_booking (booking_id),
   INDEX idx_spent_on (spent_on)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -5,17 +5,19 @@ import { Card, Btn, Modal, Field, inputCls, fmtMoney, fmtDate, api } from "@/com
 import { useCan } from "@/components/admin/AdminShell";
 import { Plus, Trash2 } from "lucide-react";
 
-const CATEGORIES = ["Maintenance","Staff","Utilities","Supplies","Food","Cleaning","Repairs","Marketing","Tax","Other"];
+const CATEGORIES = ["Maintenance","Staff","Utilities","Supplies","Food","Cleaning","Repairs","Marketing","Tax","B2B Commission","Other"];
 
 export default function ExpensesPage() {
   const canManage = useCan("expenses.manage");
   const [villas, setVillas] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [fVilla, setFVilla] = useState("");
 
   useEffect(() => { api("/api/admin/villas").then((d) => setVillas(d.villas || [])).catch(() => {}); }, []);
+  useEffect(() => { api("/api/admin/bookings").then((d) => setBookings(d.bookings || [])).catch(() => {}); }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,16 +56,18 @@ export default function ExpensesPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr><th className="px-5 py-3">Date</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Villa</th>
+              <th className="px-5 py-3">Booking</th>
               <th className="px-5 py-3">Description</th><th className="px-5 py-3 text-right">Amount</th><th className="px-5 py-3"></th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading…</td></tr>
-              : rows.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">No expenses recorded.</td></tr>
+            {loading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading…</td></tr>
+              : rows.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">No expenses recorded.</td></tr>
               : rows.map((e) => (
                 <tr key={e.id} className="hover:bg-slate-50">
                   <td className="px-5 py-3">{fmtDate(e.spentOn)}</td>
-                  <td className="px-5 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{e.category}</span></td>
+                  <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs ${e.category === "B2B Commission" ? "bg-purple-100 text-purple-700" : "bg-slate-100"}`}>{e.category}</span></td>
                   <td className="px-5 py-3 text-slate-600">{e.villaName || "—"}</td>
+                  <td className="px-5 py-3">{e.bookingRef ? <a href={`/admin/bookings/${e.bookingId}`} className="font-mono text-xs text-emerald-700 hover:underline">{e.bookingRef}</a> : <span className="text-slate-300">—</span>}</td>
                   <td className="px-5 py-3 text-slate-600">{e.description || "—"}</td>
                   <td className="px-5 py-3 text-right tabular-nums font-medium text-amber-600">{fmtMoney(e.amount)}</td>
                   <td className="px-5 py-3 text-right">
@@ -75,13 +79,13 @@ export default function ExpensesPage() {
         </table>
       </Card>
 
-      {show && <AddExpense villas={villas} onClose={() => setShow(false)} onSaved={() => { setShow(false); load(); }} />}
+      {show && <AddExpense villas={villas} bookings={bookings} onClose={() => setShow(false)} onSaved={() => { setShow(false); load(); }} />}
     </div>
   );
 }
 
-function AddExpense({ villas, onClose, onSaved }: { villas: any[]; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ villaId: "", category: "Maintenance", amount: "", description: "", spentOn: new Date().toISOString().slice(0,10) });
+function AddExpense({ villas, bookings, onClose, onSaved }: { villas: any[]; bookings: any[]; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({ villaId: "", bookingId: "", category: "Maintenance", amount: "", description: "", spentOn: new Date().toISOString().slice(0,10) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
@@ -89,7 +93,12 @@ function AddExpense({ villas, onClose, onSaved }: { villas: any[]; onClose: () =
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await api("/api/admin/expenses", { method: "POST", body: JSON.stringify({ ...f, villaId: f.villaId ? Number(f.villaId) : null, amount: Number(f.amount) }) });
+      await api("/api/admin/expenses", { method: "POST", body: JSON.stringify({
+        ...f,
+        villaId: f.villaId ? Number(f.villaId) : null,
+        bookingId: f.bookingId ? Number(f.bookingId) : null,
+        amount: Number(f.amount),
+      }) });
       onSaved();
     } catch (er) { setError(er instanceof Error ? er.message : "Failed"); setSaving(false); }
   }
@@ -112,6 +121,14 @@ function AddExpense({ villas, onClose, onSaved }: { villas: any[]; onClose: () =
             </select>
           </Field>
         </div>
+        <Field label="Link to booking (optional)">
+          <select value={f.bookingId} onChange={(e) => set("bookingId", e.target.value)} className={inputCls}>
+            <option value="">Not linked</option>
+            {bookings.map((b) => (
+              <option key={b.id} value={b.id}>{b.reference} · {b.guestName} · {b.villaName}</option>
+            ))}
+          </select>
+        </Field>
         <Field label="Description"><input value={f.description} onChange={(e) => set("description", e.target.value)} className={inputCls} /></Field>
         {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
         <div className="flex justify-end gap-2 pt-2">

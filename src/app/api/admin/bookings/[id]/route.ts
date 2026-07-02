@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     );
     if (!booking) return err("Not found", 404);
     const payments = await q(
-      `SELECT id, kind, amount, method, reference, note, paid_on AS paidOn, created_at AS createdAt
+      `SELECT id, kind, amount, b2b_amount AS b2bAmount, method, reference, note, paid_on AS paidOn, created_at AS createdAt
          FROM payments WHERE booking_id = :id ORDER BY paid_on, id`,
       { id }
     );

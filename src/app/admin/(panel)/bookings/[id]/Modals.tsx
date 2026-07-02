@@ -22,6 +22,7 @@ export function PayModal({
 }) {
   const [f, setF] = useState({
     amount: "",
+    b2bAmount: "",
     method: "cash",
     reference: "",
     note: "",
@@ -31,6 +32,10 @@ export function PayModal({
   const [error, setError] = useState("");
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
+  const received = Number(f.amount) || 0;
+  const b2b = Number(f.b2bAmount) || 0;
+  const net = received - b2b;
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -38,7 +43,10 @@ export function PayModal({
     try {
       await api(`/api/admin/bookings/${bookingId}/payments`, {
         method: "POST",
-        body: JSON.stringify({ ...f, kind, amount: Number(f.amount) }),
+        body: JSON.stringify({
+          ...f, kind, amount: Number(f.amount),
+          b2bAmount: kind === "payment" ? Number(f.b2bAmount || 0) : 0,
+        }),
       });
       onSaved();
     } catch (er) {
@@ -50,13 +58,39 @@ export function PayModal({
   return (
     <Modal open onClose={onClose} title={kind === "refund" ? "Record refund" : "Record payment"}>
       <form onSubmit={save} className="space-y-4">
-        <Field label="Amount (₹)" required>
+        <Field label={kind === "refund" ? "Amount (₹)" : "Amount received (₹)"} required>
           <input
             type="number" min={1} value={f.amount} required autoFocus
             onChange={(e) => set("amount", e.target.value)}
             className={inputCls}
           />
         </Field>
+
+        {kind === "payment" && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+            <Field label="B2B commission (₹)">
+              <input
+                type="number" min={0} value={f.b2bAmount}
+                onChange={(e) => set("b2bAmount", e.target.value)}
+                className={inputCls} placeholder="0"
+              />
+            </Field>
+            <div className="flex items-center justify-between px-1 text-sm">
+              <div className="flex gap-1.5">
+                {[10, 15, 20].map((pct) => (
+                  <button key={pct} type="button"
+                    onClick={() => set("b2bAmount", String(Math.round((received * pct) / 100)))}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-600 hover:border-emerald-400">
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+              <span className="text-slate-500">Net revenue: <span className="font-semibold text-emerald-700 tabular-nums">₹{net.toLocaleString("en-IN")}</span></span>
+            </div>
+            <p className="px-1 text-xs text-slate-400">B2B is booked as an expense linked to this booking. Invoice still shows the full amount.</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <Field label="Method">
             <select value={f.method} onChange={(e) => set("method", e.target.value)} className={inputCls}>
@@ -354,6 +388,77 @@ export function DeleteBookingModal({
           {deleting ? "Deleting…" : "Delete permanently"}
         </Btn>
       </div>
+    </Modal>
+  );
+}
+
+const EXP_CATEGORIES = ["Maintenance","Staff","Utilities","Supplies","Food","Cleaning","Repairs","Marketing","Tax","B2B Commission","Other"];
+
+export function BookingExpenseModal({
+  bookingId, villaName, reference, onClose, onSaved,
+}: {
+  bookingId: string;
+  villaName?: string;
+  reference?: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    category: "Maintenance",
+    amount: "",
+    description: "",
+    spentOn: new Date().toISOString().slice(0, 10),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api("/api/admin/expenses", {
+        method: "POST",
+        body: JSON.stringify({ ...f, bookingId: Number(bookingId), amount: Number(f.amount) }),
+      });
+      onSaved();
+    } catch (er) {
+      setError(er instanceof Error ? er.message : "Failed");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Add expense · ${reference ?? ""}`}>
+      <form onSubmit={save} className="space-y-4">
+        <p className="text-xs text-slate-400">
+          Linked to this booking{villaName ? ` · ${villaName}` : ""}.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Amount (₹)" required>
+            <input type="number" min={1} value={f.amount} required autoFocus
+              onChange={(e) => set("amount", e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Date">
+            <input type="date" value={f.spentOn}
+              onChange={(e) => set("spentOn", e.target.value)} className={inputCls} />
+          </Field>
+        </div>
+        <Field label="Category">
+          <select value={f.category} onChange={(e) => set("category", e.target.value)} className={inputCls}>
+            {EXP_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Description">
+          <input value={f.description} onChange={(e) => set("description", e.target.value)} className={inputCls} />
+        </Field>
+        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn type="submit" disabled={saving}>{saving ? "Saving…" : "Add expense"}</Btn>
+        </div>
+      </form>
     </Modal>
   );
 }

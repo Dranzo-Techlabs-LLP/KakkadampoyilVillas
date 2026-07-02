@@ -50,16 +50,16 @@ export default function AccountingPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Stat label="Collected" value={fmtMoney(s.collected)} tone="green" sub="payments received" />
+            <Stat label="Collected" value={fmtMoney(s.collected)} tone="green" sub="received from guests" />
             <Stat label="Refunded" value={fmtMoney(s.refunded)} tone="red" sub="paid back" />
-            <Stat label="Net revenue" value={fmtMoney(s.netRevenue)} tone="green" sub="collected − refunds" />
-            <Stat label="Expenses" value={fmtMoney(s.expenses)} tone="amber" />
+            <Stat label="B2B commission" value={fmtMoney(s.b2b || 0)} tone="amber" sub="paid to partners" />
+            <Stat label="Net revenue" value={fmtMoney(s.netRevenue)} tone="green" sub="collected − refunds − B2B" />
           </div>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat label="Expenses" value={fmtMoney(s.expenses)} tone="amber" sub="operating (excl. B2B)" />
             <Stat label="Profit" value={fmtMoney(s.profit)} tone={s.profit >= 0 ? "green" : "red"} sub="net revenue − expenses" />
             <Stat label="Contracted value" value={fmtMoney(s.contracted)} sub="booking totals in period" />
-            <Stat label="Bookings" value={s.bookingCount} sub="confirmed+ in period" />
-            <Stat label="Outstanding" value={fmtMoney(s.contracted - s.netRevenue)} tone="amber" sub="contracted − collected" />
+            <Stat label="Outstanding" value={fmtMoney(s.contracted - s.netRevenue)} tone="amber" sub="contracted − net revenue" />
           </div>
 
           <Card className="overflow-hidden">
