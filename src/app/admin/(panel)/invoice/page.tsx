@@ -9,6 +9,7 @@ interface Settings {
   prefix: string;
   nextNumber: number;
   padding: number;
+  terms: string;
 }
 
 export default function InvoiceSettingsPage() {
@@ -21,7 +22,8 @@ export default function InvoiceSettingsPage() {
   async function load() {
     setLoading(true);
     try {
-      setS(await api("/api/admin/invoice-settings"));
+      const d = await api("/api/admin/invoice-settings");
+      setS({ prefix: d.prefix, nextNumber: d.nextNumber, padding: d.padding, terms: d.terms ?? "" });
     } catch (e) {
       setMsg({ kind: "err", text: e instanceof Error ? e.message : "Failed to load" });
     } finally {
@@ -33,7 +35,7 @@ export default function InvoiceSettingsPage() {
   if (!canManage) {
     return (
       <Card className="p-8 text-center text-slate-500">
-        You don&rsquo;t have permission to manage the invoice series.
+        You don&rsquo;t have permission to manage invoice settings.
       </Card>
     );
   }
@@ -66,98 +68,117 @@ export default function InvoiceSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Invoice settings</h1>
         <p className="text-sm text-slate-500">
-          Control the reference (invoice number) used for new bookings.
+          Control the reference series and the terms &amp; conditions printed on every invoice.
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2">
-          <form onSubmit={save} className="space-y-4">
-            <Field label="Prefix" required>
-              <input
-                value={s.prefix}
-                onChange={(e) => setS({ ...s, prefix: e.target.value })}
-                className={inputCls}
-                maxLength={20}
-                placeholder="e.g. KV- or INV/2026/"
-                required
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Goes in front of the number. Up to 20 characters. Slashes, dashes, and letters are fine.
-              </p>
-            </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Next number" required>
+      <form onSubmit={save} className="space-y-6">
+        {/* Number series */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="p-6 lg:col-span-2">
+            <h2 className="mb-4 text-sm font-semibold text-slate-700">Reference number</h2>
+            <div className="space-y-4">
+              <Field label="Prefix" required>
                 <input
-                  type="number"
-                  min={1}
-                  value={s.nextNumber}
-                  onChange={(e) => setS({ ...s, nextNumber: Number(e.target.value) })}
+                  value={s.prefix}
+                  onChange={(e) => setS({ ...s, prefix: e.target.value })}
                   className={inputCls}
+                  maxLength={20}
+                  placeholder="e.g. KV- or INV/2026/"
                   required
                 />
                 <p className="mt-1 text-xs text-slate-500">
-                  The number the next new booking will use.
+                  Goes in front of the number. Up to 20 characters. Slashes, dashes, and letters are fine.
                 </p>
               </Field>
-              <Field label="Padding (digits)" required>
-                <input
-                  type="number"
-                  min={0}
-                  max={12}
-                  value={s.padding}
-                  onChange={(e) => setS({ ...s, padding: Number(e.target.value) })}
-                  className={inputCls}
-                  required
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Pads with leading zeros, e.g. 5 → 00001.
-                </p>
-              </Field>
-            </div>
-
-            {msg && (
-              <div
-                className={`rounded-lg px-3 py-2 text-sm ${
-                  msg.kind === "ok"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-red-50 text-red-600"
-                }`}
-              >
-                {msg.text}
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Next number" required>
+                  <input
+                    type="number"
+                    min={1}
+                    value={s.nextNumber}
+                    onChange={(e) => setS({ ...s, nextNumber: Number(e.target.value) })}
+                    className={inputCls}
+                    required
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    The number the next new booking will use.
+                  </p>
+                </Field>
+                <Field label="Padding (digits)" required>
+                  <input
+                    type="number"
+                    min={0}
+                    max={12}
+                    value={s.padding}
+                    onChange={(e) => setS({ ...s, padding: Number(e.target.value) })}
+                    className={inputCls}
+                    required
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Pads with leading zeros, e.g. 5 → 00001.
+                  </p>
+                </Field>
               </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-              <p className="text-xs text-slate-500">
-                Changes affect <strong>new</strong> bookings only. Existing references are unchanged.
-              </p>
-              <Btn type="submit" disabled={saving}>
-                <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
-              </Btn>
             </div>
-          </form>
-        </Card>
+          </Card>
 
+          <Card className="p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <FileText className="h-4 w-4 text-emerald-700" />
+              Preview
+            </div>
+            <div className="mt-4 space-y-3 text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-400">Next booking</div>
+                <div className="mt-1 font-mono text-lg font-semibold text-slate-900">{preview}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-400">After that</div>
+                <div className="mt-1 font-mono text-sm text-slate-500">{afterPreview}</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Terms & conditions */}
         <Card className="p-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <FileText className="h-4 w-4 text-emerald-700" />
-            Preview
-          </div>
-          <div className="mt-4 space-y-3 text-sm">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">Next booking</div>
-              <div className="mt-1 font-mono text-lg font-semibold text-slate-900">
-                {preview}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">After that</div>
-              <div className="mt-1 font-mono text-sm text-slate-500">{afterPreview}</div>
-            </div>
+          <h2 className="text-sm font-semibold text-slate-700">Terms &amp; conditions</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Printed on a separate second page of every invoice (PDF and Word). Leave blank to omit the
+            page entirely. Each line becomes its own line on the invoice; leave an empty line for a gap.
+          </p>
+          <textarea
+            value={s.terms}
+            onChange={(e) => setS({ ...s, terms: e.target.value })}
+            className={inputCls + " mt-3 min-h-[260px] font-mono text-xs leading-relaxed"}
+            placeholder={`1. Check-in from 2:00 PM; check-out by 11:00 AM.\n2. A valid government photo ID is required at check-in.\n3. The advance paid is non-refundable on cancellation.\n4. Guests are liable for any damage to villa property.\n5. Smoking is not permitted indoors.`}
+          />
+          <div className="mt-1 text-right text-xs text-slate-400">
+            {s.terms.length.toLocaleString()} / 20,000 characters
           </div>
         </Card>
-      </div>
+
+        {msg && (
+          <div
+            className={`rounded-lg px-3 py-2 text-sm ${
+              msg.kind === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+            }`}
+          >
+            {msg.text}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            Number changes affect <strong>new</strong> bookings only. Terms apply to every invoice
+            (existing and new) the moment you save.
+          </p>
+          <Btn type="submit" disabled={saving}>
+            <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save"}
+          </Btn>
+        </div>
+      </form>
     </div>
   );
 }

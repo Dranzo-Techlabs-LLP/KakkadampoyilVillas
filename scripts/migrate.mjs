@@ -71,6 +71,20 @@ await step("seed invoice_settings default row", async () => {
   );
 });
 
+// 2b) Editable terms & conditions printed on page 2 of every invoice.
+//     MySQL 8 has no ADD COLUMN IF NOT EXISTS, so guard via information_schema.
+await step("add invoice_settings.terms column", async () => {
+  const [cols] = await conn.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'invoice_settings'
+        AND COLUMN_NAME = 'terms'`
+  );
+  if (cols.length === 0) {
+    await conn.query(`ALTER TABLE invoice_settings ADD COLUMN terms TEXT NULL AFTER padding`);
+  }
+});
+
 // 3) New permission for the Invoice settings page.
 await step("add invoices.manage permission", async () => {
   await conn.query(

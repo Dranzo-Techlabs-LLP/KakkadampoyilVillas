@@ -78,6 +78,32 @@ export interface InvoiceData {
   balance: number;
 }
 
+export interface InvoiceSettings {
+  prefix: string;
+  nextNumber: number;
+  padding: number;
+  terms: string;
+}
+
+/** Load the single-row invoice settings, with safe fallbacks. */
+export async function loadInvoiceSettings(): Promise<InvoiceSettings> {
+  const row = await q1<{
+    prefix: string;
+    nextNumber: number;
+    padding: number;
+    terms: string | null;
+  }>(
+    `SELECT prefix, next_number AS nextNumber, padding, terms
+       FROM invoice_settings WHERE id = 1`
+  );
+  return {
+    prefix: row?.prefix ?? "KV-",
+    nextNumber: row?.nextNumber ?? 1,
+    padding: row?.padding ?? 5,
+    terms: row?.terms ?? "",
+  };
+}
+
 export async function loadInvoice(id: string | number): Promise<InvoiceData | null> {
   const booking = await q1<InvoiceBooking>(
     `SELECT b.*, v.name AS villaName, v.color

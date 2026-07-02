@@ -10,6 +10,7 @@ import {
   TableCell,
   TextRun,
   ImageRun,
+  PageBreak,
   HeadingLevel,
   AlignmentType,
   WidthType,
@@ -22,6 +23,7 @@ import {
   fmtDate,
   fmtMoney,
   loadInvoice,
+  loadInvoiceSettings,
   todayLocal,
   type InvoiceData,
 } from "@/app/admin/bookings/[id]/invoice/_lib";
@@ -94,7 +96,7 @@ function cell(children: Paragraph[], opts: Partial<{ widthPct: number; borders: 
   });
 }
 
-async function buildDocument(data: InvoiceData) {
+async function buildDocument(data: InvoiceData, terms: string) {
   const { booking, payments, checkIn, checkOut, nights, total, ratePerNight, paid, balance } = data;
   const invoiceNumber = booking.reference;
   const issued = todayLocal();
@@ -389,6 +391,26 @@ async function buildDocument(data: InvoiceData) {
     })
   );
 
+  // Terms & Conditions — forced onto a second page via a page break.
+  const trimmedTerms = terms.trim();
+  if (trimmedTerms) {
+    sectionChildren.push(new Paragraph({ children: [new PageBreak()] }));
+    sectionChildren.push(
+      new Paragraph({
+        spacing: { after: 160 },
+        children: [txt("TERMS & CONDITIONS", { bold: true, color: SLATE_900, size: 24 })],
+      })
+    );
+    for (const line of trimmedTerms.split(/\r?\n/)) {
+      sectionChildren.push(
+        new Paragraph({
+          spacing: { after: 60 },
+          children: [txt(line, { color: SLATE_600, size: 18 })],
+        })
+      );
+    }
+  }
+
   return new Document({
     creator: BIZ.name,
     title: `Invoice ${invoiceNumber}`,
@@ -419,7 +441,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const data = await loadInvoice(id);
     if (!data) return err("Not found", 404);
 
-    const doc = await buildDocument(data);
+    const settings = await loadInvoiceSettings();
+    const doc = await buildDocument(data, settings.terms);
     const buffer = await Packer.toBuffer(doc);
 
     const filename = `invoice-${data.booking.reference}.docx`;

@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import { getSessionUser } from "@/lib/auth";
 import PrintActions from "./PrintActions";
-import { BIZ, fmtMoney, fmtDate, loadInvoice, todayLocal } from "./_lib";
+import { BIZ, fmtMoney, fmtDate, loadInvoice, loadInvoiceSettings, todayLocal } from "./_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +22,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const data = await loadInvoice(id);
   if (!data) notFound();
   const { booking, payments, checkIn, checkOut, nights, total, ratePerNight, paid, balance } = data;
+
+  const settings = await loadInvoiceSettings();
+  const hasTerms = settings.terms.trim().length > 0;
 
   const invoiceNumber = booking.reference;
   const issued = todayLocal();
@@ -217,6 +220,18 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               Questions about this invoice? Reach us at {BIZ.phone} or {BIZ.email}.
             </p>
           </footer>
+
+          {/* Terms & conditions — forced onto a second page for print/PDF */}
+          {hasTerms && (
+            <section className="mt-12 border-t-4 border-double border-slate-200 pt-8 print:mt-0 print:border-t-0 print:pt-0 print:break-before-page">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">
+                Terms &amp; Conditions
+              </h2>
+              <div className="mt-3 whitespace-pre-line text-xs leading-relaxed text-slate-700">
+                {settings.terms}
+              </div>
+            </section>
+          )}
         </article>
       </div>
 
