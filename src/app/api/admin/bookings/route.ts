@@ -89,19 +89,38 @@ export async function POST(req: NextRequest) {
     // Optional advance payment recorded at booking time → ledger entry
     const advance = Number(b.advance);
     if (advance > 0) {
+      const b2b = Math.max(0, Number(b.advanceB2B) || 0);
+      if (b2b > advance) return err("B2B amount cannot exceed the advance");
+      const paidOn = new Date().toISOString().slice(0, 10);
       await exec(
-        `INSERT INTO payments (booking_id, kind, amount, method, note, paid_on, created_by)
-         VALUES (:bid, 'payment', :amount, :method, 'Advance at booking', :paidOn, :uid)`,
+        `INSERT INTO payments (booking_id, kind, amount, b2b_amount, method, note, paid_on, created_by)
+         VALUES (:bid, 'payment', :amount, :b2b, :method, 'Advance at booking', :paidOn, :uid)`,
         {
           bid: res.insertId,
           amount: advance,
+          b2b,
           method: b.advanceMethod || "cash",
-          paidOn: b.checkIn && b.checkIn < new Date().toISOString().slice(0, 10)
-            ? new Date().toISOString().slice(0, 10)
-            : new Date().toISOString().slice(0, 10),
+          paidOn,
           uid: user.id,
         }
       );
+
+      // Mirror the B2B slice as a linked expense so it flows into accounting,
+      // same convention as /api/admin/bookings/[id]/payments POST.
+      if (b2b > 0) {
+        await exec(
+          `INSERT INTO expenses (villa_id, booking_id, category, amount, description, spent_on, created_by)
+           VALUES (:villaId, :bid, 'B2B Commission', :amount, :desc, :spentOn, :uid)`,
+          {
+            villaId: b.villaId,
+            bid: res.insertId,
+            amount: b2b,
+            desc: `B2B commission · ${ref}`,
+            spentOn: paidOn,
+            uid: user.id,
+          }
+        );
+      }
     }
 
     await audit(user.id, "create", "booking", res.insertId, ref);

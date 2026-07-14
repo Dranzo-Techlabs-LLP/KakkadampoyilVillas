@@ -121,11 +121,16 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
   const [f, setF] = useState<any>({
     villaId: villas[0]?.id || "", guestName: "", guestPhone: "", guestPhone2: "", guestEmail: "",
     checkIn: "", checkOut: "", adults: 2, children: 0, status: "confirmed",
-    totalAmount: "", advance: "", advanceMethod: "cash", source: "direct", notes: "",
+    totalAmount: "", advance: "", advanceMethod: "cash", advanceB2B: "",
+    source: "direct", notes: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+
+  const advanceNum = Number(f.advance) || 0;
+  const advanceB2BNum = Number(f.advanceB2B) || 0;
+  const advanceNet = advanceNum - advanceB2BNum;
 
   async function save(allowOverlap = false) {
     setSaving(true); setError("");
@@ -134,7 +139,9 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
         method: "POST",
         body: JSON.stringify({ ...f, villaId: Number(f.villaId), adults: Number(f.adults),
           children: Number(f.children), totalAmount: Number(f.totalAmount || 0),
-          advance: Number(f.advance || 0), allowOverlap }),
+          advance: Number(f.advance || 0),
+          advanceB2B: Number(f.advanceB2B || 0),
+          allowOverlap }),
       });
       onSaved();
     } catch (e) {
@@ -200,6 +207,30 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
               {["cash","upi","bank","card","other"].map((m) => <option key={m} value={m} className="capitalize">{m}</option>)}
             </select>
           </Field>
+          <div className="sm:col-span-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+              <Field label="B2B commission (₹)">
+                <input
+                  type="number" min={0} value={f.advanceB2B}
+                  onChange={(e) => set("advanceB2B", e.target.value)}
+                  className={inputCls} placeholder="0"
+                />
+              </Field>
+              <div className="flex items-center justify-between px-1 text-sm">
+                <div className="flex gap-1.5">
+                  {[10, 15, 20].map((pct) => (
+                    <button key={pct} type="button"
+                      onClick={() => set("advanceB2B", String(Math.round((advanceNum * pct) / 100)))}
+                      className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-600 hover:border-emerald-400">
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
+                <span className="text-slate-500">Net revenue: <span className="font-semibold text-emerald-700 tabular-nums">₹{advanceNet.toLocaleString("en-IN")}</span></span>
+              </div>
+              <p className="px-1 text-xs text-slate-400">B2B is booked as an expense linked to this booking. Invoice still shows the full amount.</p>
+            </div>
+          </div>
         </div>
         <Field label="Notes">
           <textarea rows={2} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={inputCls} />

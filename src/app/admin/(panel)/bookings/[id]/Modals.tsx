@@ -392,6 +392,184 @@ export function DeleteBookingModal({
   );
 }
 
+export function EditPaymentModal({
+  bookingId, payment, onClose, onSaved,
+}: {
+  bookingId: string;
+  payment: {
+    id: number;
+    kind: "payment" | "refund";
+    amount: number | string;
+    b2bAmount: number | string;
+    method: string;
+    reference: string | null;
+    note: string | null;
+    paidOn: string;
+  };
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    amount: String(payment.amount ?? ""),
+    b2bAmount: String(payment.b2bAmount ?? ""),
+    method: payment.method || "cash",
+    reference: payment.reference || "",
+    note: payment.note || "",
+    paidOn: String(payment.paidOn || "").slice(0, 10),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  const kind = payment.kind;
+  const received = Number(f.amount) || 0;
+  const b2b = Number(f.b2bAmount) || 0;
+  const net = received - b2b;
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/admin/bookings/${bookingId}/payments/${payment.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...f, kind, amount: Number(f.amount),
+          b2bAmount: kind === "payment" ? Number(f.b2bAmount || 0) : 0,
+        }),
+      });
+      onSaved();
+    } catch (er) {
+      setError(er instanceof Error ? er.message : "Failed");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={kind === "refund" ? "Edit refund" : "Edit payment"}>
+      <form onSubmit={save} className="space-y-4">
+        <Field label={kind === "refund" ? "Amount (₹)" : "Amount received (₹)"} required>
+          <input
+            type="number" min={1} value={f.amount} required autoFocus
+            onChange={(e) => set("amount", e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+
+        {kind === "payment" && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+            <Field label="B2B commission (₹)">
+              <input
+                type="number" min={0} value={f.b2bAmount}
+                onChange={(e) => set("b2bAmount", e.target.value)}
+                className={inputCls} placeholder="0"
+              />
+            </Field>
+            <div className="flex items-center justify-between px-1 text-sm">
+              <div className="flex gap-1.5">
+                {[10, 15, 20].map((pct) => (
+                  <button key={pct} type="button"
+                    onClick={() => set("b2bAmount", String(Math.round((received * pct) / 100)))}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-600 hover:border-emerald-400">
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+              <span className="text-slate-500">Net revenue: <span className="font-semibold text-emerald-700 tabular-nums">₹{net.toLocaleString("en-IN")}</span></span>
+            </div>
+            <p className="px-1 text-xs text-slate-400">The linked B2B commission expense is updated to match.</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Method">
+            <select value={f.method} onChange={(e) => set("method", e.target.value)} className={inputCls}>
+              {["cash", "upi", "bank", "card", "other"].map((m) => (
+                <option key={m} value={m} className="capitalize">{m}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Date">
+            <input
+              type="date" value={f.paidOn}
+              onChange={(e) => set("paidOn", e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <Field label="Reference">
+          <input
+            value={f.reference} placeholder="UPI ref, receipt no…"
+            onChange={(e) => set("reference", e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Note">
+          <input
+            value={f.note}
+            onChange={(e) => set("note", e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn type="submit" variant={kind === "refund" ? "danger" : "primary"} disabled={saving}>
+            {saving ? "Saving…" : "Save changes"}
+          </Btn>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export function DeletePaymentModal({
+  bookingId, payment, onClose, onDeleted,
+}: {
+  bookingId: string;
+  payment: { id: number; kind: "payment" | "refund"; amount: number | string; b2bAmount: number | string };
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const b2b = Number(payment.b2bAmount) || 0;
+
+  async function del() {
+    setDeleting(true);
+    setError("");
+    try {
+      await api(`/api/admin/bookings/${bookingId}/payments/${payment.id}`, { method: "DELETE" });
+      onDeleted();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Delete ${payment.kind}`}>
+      <p className="text-sm text-slate-700">
+        Remove this {payment.kind} of{" "}
+        <span className="font-semibold">₹{Number(payment.amount).toLocaleString("en-IN")}</span>?
+      </p>
+      {b2b > 0 && (
+        <p className="mt-2 text-xs text-slate-500">
+          The linked B2B commission expense (₹{b2b.toLocaleString("en-IN")}) will also be removed.
+        </p>
+      )}
+      <p className="mt-2 text-sm text-red-600">This cannot be undone.</p>
+      {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+      <div className="mt-5 flex justify-end gap-2">
+        <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+        <Btn variant="danger" onClick={del} disabled={deleting}>
+          {deleting ? "Deleting…" : "Delete"}
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
+
 const EXP_CATEGORIES = ["Maintenance","Staff","Utilities","Supplies","Food","Cleaning","Repairs","Marketing","Tax","B2B Commission","Other"];
 
 export function BookingExpenseModal({
