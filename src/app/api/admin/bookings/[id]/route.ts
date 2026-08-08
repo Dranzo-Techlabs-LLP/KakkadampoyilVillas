@@ -90,12 +90,15 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   });
 }
 
-// DELETE — hard-delete the booking (cascades to payments via FK).
+// DELETE — hard-delete the booking. Payments cascade via FK; linked expenses
+// (e.g. auto-booked B2B commission) are removed explicitly so no orphans are
+// left behind (the FK only nulls booking_id).
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   return guard("bookings.manage", async (user) => {
     const row = await q1<any>(`SELECT reference FROM bookings WHERE id = :id`, { id });
     if (!row) return err("Not found", 404);
+    await exec(`DELETE FROM expenses WHERE booking_id = :id`, { id });
     await exec(`DELETE FROM bookings WHERE id = :id`, { id });
     await audit(user.id, "delete", "booking", Number(id), row.reference);
     return json({ ok: true });
