@@ -39,6 +39,7 @@ export default function CombinedReportPrint() {
   const from = sp.get("from") || "";
   const to = sp.get("to") || "";
   const villaId = sp.get("villa") || "";
+  const basis = sp.get("basis") === "cash" ? "cash" : "stay";
 
   const [rows, setRows] = useState<Row[]>([]);
   const [totals, setTotals] = useState<Totals | null>(null);
@@ -48,7 +49,7 @@ export default function CombinedReportPrint() {
   useEffect(() => {
     (async () => {
       try {
-        const p = new URLSearchParams({ type: "combined", from, to });
+        const p = new URLSearchParams({ type: "combined", from, to, basis });
         if (villaId) p.set("villa", villaId);
         const [d, villas] = await Promise.all([
           api(`/api/admin/reports?${p}`),
@@ -64,7 +65,7 @@ export default function CombinedReportPrint() {
         setLoading(false);
       }
     })();
-  }, [from, to, villaId]);
+  }, [from, to, villaId, basis]);
 
   const title = villaName ? `${villaName} · Combined Report` : "Combined Report";
 

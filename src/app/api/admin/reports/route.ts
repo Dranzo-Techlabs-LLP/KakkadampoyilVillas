@@ -13,6 +13,10 @@ export async function GET(req: NextRequest) {
     const to = sp.get("to") || "2999-12-31";
     const villa = sp.get("villa") ? Number(sp.get("villa")) : null;
     const format = sp.get("format") || "json";
+    // basis=stay → group by the booking's stay month (check_in).
+    // basis=cash → group by the actual transaction date (paid_on / spent_on),
+    //              so an advance paid in another month is excluded.
+    const basis = sp.get("basis") === "cash" ? "cash" : "stay";
 
     let rows: any[] = [];
     let totals:
@@ -34,20 +38,21 @@ export async function GET(req: NextRequest) {
         { from, to, villa }
       );
     } else if (type === "payments") {
-      // Report period follows the booking's stay (check_in), not when cash moved.
-      // Payment date is still shown in the Date column for reference.
+      // stay basis → filter by the stay month; cash basis → by the payment date.
+      const dateFilter = basis === "cash" ? "pm.paid_on" : "b.check_in";
       rows = await q(
         `SELECT pm.paid_on AS Date, b.check_in AS Stay,
                 b.reference AS Booking, v.name AS Villa,
                 pm.kind AS Kind, pm.amount AS Amount, pm.method AS Method, pm.reference AS Ref
            FROM payments pm JOIN bookings b ON b.id = pm.booking_id JOIN villas v ON v.id = b.villa_id
-          WHERE b.check_in BETWEEN :from AND :to ${villa ? "AND b.villa_id=:villa" : ""}
-          ORDER BY b.check_in DESC, pm.paid_on DESC`,
+          WHERE ${dateFilter} BETWEEN :from AND :to ${villa ? "AND b.villa_id=:villa" : ""}
+          ORDER BY ${dateFilter} DESC, pm.paid_on DESC`,
         { from, to, villa }
       );
     } else if (type === "expenses") {
-      // Booking-linked expenses (e.g. B2B commission) sit in the stay's month;
-      // general expenses stay on their spent_on date.
+      // stay basis → booking-linked expenses sit in the stay's month;
+      // cash basis → every expense on its own spent_on date.
+      const dateFilter = basis === "cash" ? "e.spent_on" : "COALESCE(b.check_in, e.spent_on)";
       rows = await q(
         `SELECT e.spent_on AS Date,
                 COALESCE(b.check_in, e.spent_on) AS Stay,
@@ -57,9 +62,9 @@ export async function GET(req: NextRequest) {
            FROM expenses e
            LEFT JOIN villas v ON v.id = e.villa_id
            LEFT JOIN bookings b ON b.id = e.booking_id
-          WHERE COALESCE(b.check_in, e.spent_on) BETWEEN :from AND :to
+          WHERE ${dateFilter} BETWEEN :from AND :to
                 ${villa ? "AND e.villa_id=:villa" : ""}
-          ORDER BY COALESCE(b.check_in, e.spent_on) DESC, e.spent_on DESC`,
+          ORDER BY ${dateFilter} DESC, e.spent_on DESC`,
         { from, to, villa }
       );
     } else if (type === "combined") {
@@ -69,6 +74,11 @@ export async function GET(req: NextRequest) {
       // This means an August advance for a September stay appears in September.
       const villaClauseP = villa ? "AND b.villa_id = :villa" : "";
       const villaClauseE = villa ? "AND e.villa_id = :villa" : "";
+      // Date filter column per basis.
+      const payFilter = basis === "cash" ? "pm.paid_on" : "b.check_in";
+      const expFilter = basis === "cash" ? "e.spent_on" : "COALESCE(bx.check_in, e.spent_on)";
+      // Cash basis reads chronologically by transaction date; stay basis by stay.
+      const orderBy = basis === "cash" ? "d ASC, sort_id ASC" : "stay ASC, sort_id ASC";
       const raw = await q<any>(
         `SELECT * FROM (
            SELECT pm.paid_on AS d,
@@ -85,7 +95,7 @@ export async function GET(req: NextRequest) {
              JOIN villas v ON v.id = b.villa_id
              LEFT JOIN users u ON u.id = pm.created_by
             WHERE pm.kind = 'payment'
-              AND b.check_in BETWEEN :from AND :to
+              AND ${payFilter} BETWEEN :from AND :to
               ${villaClauseP}
            UNION ALL
            SELECT pm.paid_on AS d,
@@ -102,7 +112,7 @@ export async function GET(req: NextRequest) {
              JOIN villas v ON v.id = b.villa_id
              LEFT JOIN users u ON u.id = pm.created_by
             WHERE pm.kind = 'refund'
-              AND b.check_in BETWEEN :from AND :to
+              AND ${payFilter} BETWEEN :from AND :to
               ${villaClauseP}
            UNION ALL
            SELECT e.spent_on AS d,
@@ -118,10 +128,10 @@ export async function GET(req: NextRequest) {
              LEFT JOIN villas v ON v.id = e.villa_id
              LEFT JOIN bookings bx ON bx.id = e.booking_id
              LEFT JOIN users u ON u.id = e.created_by
-            WHERE COALESCE(bx.check_in, e.spent_on) BETWEEN :from AND :to
+            WHERE ${expFilter} BETWEEN :from AND :to
               ${villaClauseE}
          ) x
-         ORDER BY stay ASC, sort_id ASC`,
+         ORDER BY ${orderBy}`,
         { from, to, villa }
       );
 

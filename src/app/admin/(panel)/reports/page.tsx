@@ -20,6 +20,7 @@ export default function ReportsPage() {
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
   const [villa, setVilla] = useState("");
+  const [basis, setBasis] = useState<"stay" | "cash">("stay");
   const [villas, setVillas] = useState<any[]>([]);
   const [preview, setPreview] = useState<{ type: string; rows: any[]; totals?: { credited: number; debited: number; overall: number; entries: number } } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ export default function ReportsPage() {
   useEffect(() => { api("/api/admin/villas").then((d) => setVillas(d.villas || [])).catch(() => {}); }, []);
 
   function qs(extra?: Record<string, string>) {
-    const p = new URLSearchParams({ from, to, ...extra });
+    const p = new URLSearchParams({ from, to, basis, ...extra });
     if (villa) p.set("villa", villa);
     return p.toString();
   }
@@ -43,7 +44,7 @@ export default function ReportsPage() {
   }
 
   function openPrint() {
-    const p = new URLSearchParams({ from, to });
+    const p = new URLSearchParams({ from, to, basis });
     if (villa) p.set("villa", villa);
     window.open(`/admin/reports/combined/print?${p}`, "_blank");
   }
@@ -63,7 +64,23 @@ export default function ReportsPage() {
               <option value="">All villas</option>
               {villas.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select></label>
+          <div className="text-sm">
+            <span className="mb-1 block text-xs text-slate-500">Period basis</span>
+            <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
+              {([["stay", "Stay month"], ["cash", "Cash date"]] as const).map(([k, lbl]) => (
+                <button key={k} type="button" onClick={() => setBasis(k)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${basis === k ? "bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+        <p className="mt-2 text-xs text-slate-400">
+          {basis === "stay"
+            ? "Stay month — a transaction counts in the month the guest checks in (advances paid in another month still count toward the stay)."
+            : "Cash date — a transaction counts in the month the money actually moved; advances for other months are excluded."}
+        </p>
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
