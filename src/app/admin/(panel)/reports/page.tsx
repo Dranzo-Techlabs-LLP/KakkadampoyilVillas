@@ -21,7 +21,7 @@ export default function ReportsPage() {
   const [to, setTo] = useState(today());
   const [villa, setVilla] = useState("");
   const [villas, setVillas] = useState<any[]>([]);
-  const [preview, setPreview] = useState<{ type: string; rows: any[]; totals?: { cashIn: number; cashOut: number; balance: number; entries: number } } | null>(null);
+  const [preview, setPreview] = useState<{ type: string; rows: any[]; totals?: { credited: number; debited: number; overall: number; entries: number } } | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { api("/api/admin/villas").then((d) => setVillas(d.villas || [])).catch(() => {}); }, []);
@@ -85,19 +85,22 @@ export default function ReportsPage() {
 
       {loading && <div className="text-sm text-slate-400">Loading preview…</div>}
 
-      {preview && !loading && preview.type === "combined" && preview.totals && (
+      {preview && !loading && preview.totals && (
         <div className="grid gap-4 sm:grid-cols-3">
           <Card className="p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-400">Total Cash in</div>
-            <div className="mt-1 text-2xl font-semibold text-emerald-700 tabular-nums">{fmtMoney(preview.totals.cashIn)}</div>
+            <div className="text-xs uppercase tracking-wide text-slate-400">Total Credited</div>
+            <div className="mt-1 text-2xl font-semibold text-emerald-700 tabular-nums">{fmtMoney(preview.totals.credited)}</div>
+            <div className="mt-0.5 text-xs text-slate-400">money in</div>
           </Card>
           <Card className="p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-400">Total Cash out</div>
-            <div className="mt-1 text-2xl font-semibold text-red-600 tabular-nums">{fmtMoney(preview.totals.cashOut)}</div>
+            <div className="text-xs uppercase tracking-wide text-slate-400">Total Debited</div>
+            <div className="mt-1 text-2xl font-semibold text-red-600 tabular-nums">{fmtMoney(preview.totals.debited)}</div>
+            <div className="mt-0.5 text-xs text-slate-400">refunds + expenses out</div>
           </Card>
           <Card className="p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-400">Final Balance</div>
-            <div className={`mt-1 text-2xl font-semibold tabular-nums ${preview.totals.balance >= 0 ? "text-slate-800" : "text-red-600"}`}>{fmtMoney(preview.totals.balance)}</div>
+            <div className="text-xs uppercase tracking-wide text-slate-400">Overall Total</div>
+            <div className={`mt-1 text-2xl font-semibold tabular-nums ${preview.totals.overall >= 0 ? "text-slate-800" : "text-red-600"}`}>{fmtMoney(preview.totals.overall)}</div>
+            <div className="mt-0.5 text-xs text-slate-400">credited − debited</div>
           </Card>
         </div>
       )}

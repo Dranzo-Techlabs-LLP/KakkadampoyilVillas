@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
     const format = sp.get("format") || "json";
 
     let rows: any[] = [];
-    let totals: { cashIn: number; cashOut: number; balance: number; entries: number } | undefined;
+    let totals:
+      | { credited: number; debited: number; overall: number; entries: number;
+          cashIn?: number; cashOut?: number; balance?: number }
+      | undefined;
     if (type === "bookings") {
       rows = await q(
         `SELECT b.reference AS Reference, v.name AS Villa, b.guest_name AS Guest,
@@ -144,13 +147,33 @@ export async function GET(req: NextRequest) {
         };
       });
       totals = {
+        credited: cashInTotal,
+        debited: cashOutTotal,
+        overall: cashInTotal - cashOutTotal,
+        entries: rows.length,
+        // kept for the combined print view
         cashIn: cashInTotal,
         cashOut: cashOutTotal,
         balance: cashInTotal - cashOutTotal,
-        entries: rows.length,
       };
     } else {
       return err("Unknown report type");
+    }
+
+    // Unified credited / debited / overall totals for the non-combined reports.
+    if (type !== "combined") {
+      const sum = (pred: (r: any) => number) => rows.reduce((s, r) => s + (pred(r) || 0), 0);
+      let credited = 0;
+      let debited = 0;
+      if (type === "payments") {
+        credited = sum((r) => (r.Kind === "payment" ? Number(r.Amount) : 0));
+        debited = sum((r) => (r.Kind === "refund" ? Number(r.Amount) : 0));
+      } else if (type === "expenses") {
+        debited = sum((r) => Number(r.Amount));
+      } else if (type === "bookings") {
+        credited = sum((r) => Number(r.Paid)); // net received across bookings
+      }
+      totals = { credited, debited, overall: credited - debited, entries: rows.length };
     }
 
     if (format === "csv") {
