@@ -16,7 +16,22 @@ const TYPES = [
 
 const MONEY_KEYS = new Set(["Total", "Paid", "Amount", "Cash in", "Cash out", "Balance"]);
 // Columns that get a dropdown of distinct values (low-cardinality / categorical).
-const SELECT_KEYS = new Set(["Villa", "Source", "Status", "Method", "Kind", "Category", "Mode", "Entry by", "Booking"]);
+// Source is intentionally a free-text filter so "!term" negation is typable.
+const SELECT_KEYS = new Set(["Villa", "Status", "Method", "Kind", "Category", "Mode", "Entry by"]);
+
+// A single cell matches a filter value. Supports "!term" (exclude) and plain
+// substring (include), case-insensitive. Multiple !terms can be comma-separated.
+function cellMatches(cell: string, filter: string) {
+  const c = cell.toLowerCase();
+  const f = filter.trim().toLowerCase();
+  if (!f) return true;
+  if (f.startsWith("!")) {
+    // exclude if the cell contains ANY of the negated terms
+    const terms = f.slice(1).split(",").map((t) => t.trim()).filter(Boolean);
+    return !terms.some((t) => c.includes(t));
+  }
+  return c.includes(f);
+}
 
 // Recompute credited / debited / overall from an arbitrary row subset,
 // mirroring the API totals so column filters update the summary live.
@@ -130,7 +145,7 @@ export default function ReportsPage() {
         const cols = preview.rows.length ? Object.keys(preview.rows[0]) : [];
         const activeFilters = Object.entries(colFilters).filter(([, v]) => v);
         const filtered = preview.rows.filter((r) =>
-          activeFilters.every(([k, v]) => String(r[k] ?? "").toLowerCase().includes(v.toLowerCase()))
+          activeFilters.every(([k, v]) => cellMatches(String(r[k] ?? ""), v))
         );
         const totals = computeTotals(preview.type, filtered);
         const distinct = (k: string) =>
@@ -161,7 +176,8 @@ export default function ReportsPage() {
                 <span className="text-sm font-semibold capitalize text-slate-700">
                   {preview.type} · {filtered.length}{activeFilters.length ? ` of ${preview.rows.length}` : ""} {preview.type === "combined" ? "entries" : "rows"}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="hidden text-xs text-slate-400 sm:inline">Tip: type <code className="rounded bg-slate-100 px-1">!b2b</code> to exclude</span>
                   {activeFilters.length > 0 && (
                     <button onClick={() => setColFilters({})} className="text-xs text-slate-500 underline hover:text-slate-800">Clear filters</button>
                   )}
@@ -197,7 +213,8 @@ export default function ReportsPage() {
                               <input
                                 value={colFilters[h] || ""}
                                 onChange={(e) => setColFilters((p) => ({ ...p, [h]: e.target.value }))}
-                                placeholder="filter…"
+                                placeholder={h === "Source" ? "e.g. rahim  ·  !b2b" : "filter… !exclude"}
+                                title={'Type text to match. Prefix with "!" to exclude (e.g. !b2b). Comma-separate multiple: !b2b,cash'}
                                 className="w-full min-w-[90px] rounded-md border border-slate-300 px-2 py-1 text-xs" />
                             )}
                           </th>

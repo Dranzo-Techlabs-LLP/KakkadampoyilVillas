@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       const dateFilter = basis === "cash" ? "pm.paid_on" : "b.check_in";
       rows = await q(
         `SELECT pm.paid_on AS Date, b.check_in AS Stay,
-                b.reference AS Booking, v.name AS Villa,
+                b.reference AS Booking, v.name AS Villa, b.source AS Source,
                 pm.kind AS Kind, pm.amount AS Amount, pm.method AS Method, pm.reference AS Ref
            FROM payments pm JOIN bookings b ON b.id = pm.booking_id JOIN villas v ON v.id = b.villa_id
           WHERE ${dateFilter} BETWEEN :from AND :to ${villa ? "AND b.villa_id=:villa" : ""}
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
                 COALESCE(b.check_in, e.spent_on) AS Stay,
                 COALESCE(v.name,'(general)') AS Villa,
                 e.category AS Category, e.amount AS Amount, e.description AS Description,
-                b.reference AS Booking
+                b.reference AS Booking, COALESCE(b.source,'') AS Source
            FROM expenses e
            LEFT JOIN villas v ON v.id = e.villa_id
            LEFT JOIN bookings b ON b.id = e.booking_id
@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
            SELECT pm.paid_on AS d,
                   b.check_in AS stay,
                   v.name AS villa,
+                  COALESCE(b.source, '') AS src,
                   COALESCE(NULLIF(pm.note, ''), CONCAT('Booking · ', b.reference)) AS remark,
                   COALESCE(u.name, '—') AS entry_by,
                   pm.method AS mode,
@@ -101,6 +102,7 @@ export async function GET(req: NextRequest) {
            SELECT pm.paid_on AS d,
                   b.check_in AS stay,
                   v.name AS villa,
+                  COALESCE(b.source, '') AS src,
                   CONCAT('Refund · ', b.reference) AS remark,
                   COALESCE(u.name, '—') AS entry_by,
                   pm.method AS mode,
@@ -118,6 +120,7 @@ export async function GET(req: NextRequest) {
            SELECT e.spent_on AS d,
                   COALESCE(bx.check_in, e.spent_on) AS stay,
                   COALESCE(v.name, '(general)') AS villa,
+                  COALESCE(bx.source, '') AS src,
                   COALESCE(NULLIF(e.description, ''), e.category) AS remark,
                   COALESCE(u.name, '—') AS entry_by,
                   'cash' AS mode,
@@ -148,6 +151,7 @@ export async function GET(req: NextRequest) {
           Date: r.d,
           Stay: r.stay,
           Villa: r.villa,
+          Source: r.src || "",
           Remark: r.remark,
           "Entry by": r.entry_by,
           Mode: r.mode,
