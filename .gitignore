@@ -56,3 +56,6 @@ public.bak.*
 # misc generated
 /.next/standalone/
 /.next/cache/
+
+# claude code local settings (machine-specific)
+.claude/settings.local.json
