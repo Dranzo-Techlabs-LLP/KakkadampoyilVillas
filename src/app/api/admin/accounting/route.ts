@@ -17,12 +17,14 @@ export async function GET(req: NextRequest) {
     const p: any = { from, to, villa };
 
     // Revenue from payments (collected money), net of refunds, plus the B2B
-    // commission slice that is passed through to partners.
+    // commission slice that is passed through to partners. B2B is only owed
+    // when the stay happens — for cancelled bookings we treat b2b as 0.
     const rev = await q1<any>(
       `SELECT
          COALESCE(SUM(CASE WHEN pm.kind='payment' THEN pm.amount ELSE 0 END),0) AS collected,
          COALESCE(SUM(CASE WHEN pm.kind='refund'  THEN pm.amount ELSE 0 END),0) AS refunded,
-         COALESCE(SUM(CASE WHEN pm.kind='payment' THEN pm.b2b_amount ELSE 0 END),0) AS b2b
+         COALESCE(SUM(CASE WHEN pm.kind='payment' AND b.status <> 'cancelled'
+                           THEN pm.b2b_amount ELSE 0 END),0) AS b2b
        FROM payments pm JOIN bookings b ON b.id = pm.booking_id
        WHERE pm.paid_on BETWEEN :from AND :to ${villaPay}`,
       p
@@ -49,14 +51,19 @@ export async function GET(req: NextRequest) {
     // Per-villa breakdown — revenue net of refunds AND B2B; expenses exclude B2B.
     const perVilla = await q(
       `SELECT v.id, v.name, v.color,
-              COALESCE((SELECT SUM(CASE WHEN pm.kind='payment' THEN pm.amount - pm.b2b_amount ELSE -pm.amount END)
+              COALESCE((SELECT SUM(
+                          CASE WHEN pm.kind='payment' THEN
+                                 pm.amount - (CASE WHEN b.status='cancelled' THEN 0 ELSE pm.b2b_amount END)
+                               ELSE -pm.amount END)
                           FROM payments pm JOIN bookings b ON b.id = pm.booking_id
                          WHERE b.villa_id = v.id AND pm.paid_on BETWEEN :from AND :to),0) AS revenue,
               COALESCE((SELECT SUM(e.amount) FROM expenses e
                          WHERE e.villa_id = v.id AND e.spent_on BETWEEN :from AND :to
                            AND e.category <> 'B2B Commission'),0) AS expenses,
               COALESCE((SELECT SUM(pm.b2b_amount) FROM payments pm JOIN bookings b ON b.id = pm.booking_id
-                         WHERE b.villa_id = v.id AND pm.kind='payment' AND pm.paid_on BETWEEN :from AND :to),0) AS b2b,
+                         WHERE b.villa_id = v.id AND pm.kind='payment'
+                           AND b.status <> 'cancelled'
+                           AND pm.paid_on BETWEEN :from AND :to),0) AS b2b,
               (SELECT COUNT(*) FROM bookings b
                  WHERE b.villa_id = v.id AND b.status <> 'cancelled'
                    AND b.check_in BETWEEN :from AND :to) AS bookings

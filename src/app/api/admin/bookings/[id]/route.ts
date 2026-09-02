@@ -42,6 +42,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         `UPDATE bookings SET status = 'cancelled', cancel_reason = :reason WHERE id = :id`,
         { id, reason: b.cancelReason ?? null }
       );
+      // B2B commission is only owed if the stay happens. When the booking is
+      // cancelled, drop the auto-booked commission expenses so reports and
+      // accounting don't count a commission the partner isn't due.
+      await exec(
+        `DELETE FROM expenses WHERE booking_id = :id AND category = 'B2B Commission'`,
+        { id }
+      );
       await audit(user.id, "cancel", "booking", Number(id), b.cancelReason ?? "");
       return json({ ok: true });
     });

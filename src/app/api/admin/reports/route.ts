@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
     } else if (type === "expenses") {
       // stay basis → booking-linked expenses sit in the stay's month;
       // cash basis → every expense on its own spent_on date.
+      // B2B commission for a cancelled booking is not owed to the partner,
+      // so it's hidden here (defence-in-depth — the cancel flow also deletes it).
       const dateFilter = basis === "cash" ? "e.spent_on" : "COALESCE(b.check_in, e.spent_on)";
       rows = await q(
         `SELECT e.spent_on AS Date,
@@ -63,6 +65,7 @@ export async function GET(req: NextRequest) {
            LEFT JOIN villas v ON v.id = e.villa_id
            LEFT JOIN bookings b ON b.id = e.booking_id
           WHERE ${dateFilter} BETWEEN :from AND :to
+                AND NOT (e.category = 'B2B Commission' AND b.status = 'cancelled')
                 ${villa ? "AND e.villa_id=:villa" : ""}
           ORDER BY ${dateFilter} DESC, e.spent_on DESC`,
         { from, to, villa }
@@ -132,6 +135,7 @@ export async function GET(req: NextRequest) {
              LEFT JOIN bookings bx ON bx.id = e.booking_id
              LEFT JOIN users u ON u.id = e.created_by
             WHERE ${expFilter} BETWEEN :from AND :to
+              AND NOT (e.category = 'B2B Commission' AND bx.status = 'cancelled')
               ${villaClauseE}
          ) x
          ORDER BY ${orderBy}`,
