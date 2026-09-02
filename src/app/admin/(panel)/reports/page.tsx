@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, Btn, api, fmtMoney } from "@/components/admin/ui";
-import { Download, FileText, Printer } from "lucide-react";
+import { Download, FileText, Printer, CheckCircle2, X } from "lucide-react";
 
 function monthStart() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`; }
 function today() { return new Date().toISOString().slice(0,10); }
@@ -61,6 +61,7 @@ export default function ReportsPage() {
   const [preview, setPreview] = useState<{ type: string; rows: any[]; totals?: { credited: number; debited: number; overall: number; entries: number } } | null>(null);
   const [loading, setLoading] = useState(false);
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => { api("/api/admin/villas").then((d) => setVillas(d.villas || [])).catch(() => {}); }, []);
 
@@ -73,8 +74,18 @@ export default function ReportsPage() {
   async function showPreview(type: string) {
     setLoading(true);
     setColFilters({});
-    try { const d = await api(`/api/admin/reports?${qs({ type })}`); setPreview({ type, rows: d.rows || [], totals: d.totals }); }
-    catch { /* */ } finally { setLoading(false); }
+    setNotice(null);
+    try {
+      const d = await api(`/api/admin/reports?${qs({ type })}`);
+      setPreview({ type, rows: d.rows || [], totals: d.totals });
+      const label = TYPES.find((t) => t.key === type)?.label || "Report";
+      const n = d.rows?.length || 0;
+      setNotice(
+        n === 0
+          ? `${label} generated — no entries in this period.`
+          : `Your ${label.toLowerCase()} is ready. Please review the details below.`
+      );
+    } catch { /* */ } finally { setLoading(false); }
   }
 
   function download(type: string) {
@@ -153,6 +164,22 @@ export default function ReportsPage() {
 
         return (
           <>
+            {notice && (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                  <span>{notice}</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  onClick={() => setNotice(null)}
+                  className="rounded-md p-1 text-emerald-700 hover:bg-emerald-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-3">
               <Card className="p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-400">Total Credited</div>
