@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, Btn, Modal, Field, inputCls, fmtMoney, fmtDate, api } from "@/components/admin/ui";
 import { useCan } from "@/components/admin/AdminShell";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 const CATEGORIES = ["Maintenance","Staff","Utilities","Supplies","Food","Cleaning","Repairs","Marketing","Tax","B2B Commission","Other"];
 
@@ -14,6 +14,7 @@ export default function ExpensesPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
   const [fVilla, setFVilla] = useState("");
 
   useEffect(() => { api("/api/admin/villas").then((d) => setVillas(d.villas || [])).catch(() => {}); }, []);
@@ -71,7 +72,26 @@ export default function ExpensesPage() {
                   <td className="px-5 py-3 text-slate-600">{e.description || "—"}</td>
                   <td className="px-5 py-3 text-right tabular-nums font-medium text-amber-600">{fmtMoney(e.amount)}</td>
                   <td className="px-5 py-3 text-right">
-                    {canManage && <button onClick={() => del(e.id)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>}
+                    {canManage && (
+                      <div className="inline-flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(e)}
+                          aria-label="Edit expense"
+                          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => del(e.id)}
+                          aria-label="Delete expense"
+                          className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -80,7 +100,87 @@ export default function ExpensesPage() {
       </Card>
 
       {show && <AddExpense villas={villas} bookings={bookings} onClose={() => setShow(false)} onSaved={() => { setShow(false); load(); }} />}
+      {editing && (
+        <EditExpense
+          expense={editing}
+          villas={villas}
+          bookings={bookings}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditExpense({
+  expense, villas, bookings, onClose, onSaved,
+}: {
+  expense: any;
+  villas: any[];
+  bookings: any[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    villaId: expense.villaId ? String(expense.villaId) : "",
+    bookingId: expense.bookingId ? String(expense.bookingId) : "",
+    category: expense.category ?? "Maintenance",
+    amount: String(expense.amount ?? ""),
+    description: expense.description ?? "",
+    spentOn: String(expense.spentOn ?? "").slice(0, 10),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault(); setSaving(true); setError("");
+    try {
+      await api(`/api/admin/expenses/${expense.id}`, { method: "PATCH", body: JSON.stringify({
+        ...f,
+        villaId: f.villaId ? Number(f.villaId) : null,
+        bookingId: f.bookingId ? Number(f.bookingId) : null,
+        amount: Number(f.amount),
+      }) });
+      onSaved();
+    } catch (er) { setError(er instanceof Error ? er.message : "Failed"); setSaving(false); }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Edit expense">
+      <form onSubmit={save} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Amount (₹)" required><input type="number" min={1} value={f.amount} onChange={(e) => set("amount", e.target.value)} className={inputCls} required autoFocus /></Field>
+          <Field label="Date"><input type="date" value={f.spentOn} onChange={(e) => set("spentOn", e.target.value)} className={inputCls} /></Field>
+          <Field label="Category">
+            <select value={f.category} onChange={(e) => set("category", e.target.value)} className={inputCls}>
+              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Villa (optional)">
+            <select value={f.villaId} onChange={(e) => set("villaId", e.target.value)} className={inputCls}>
+              <option value="">General / all</option>
+              {villas.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Link to booking (optional)">
+          <select value={f.bookingId} onChange={(e) => set("bookingId", e.target.value)} className={inputCls}>
+            <option value="">Not linked</option>
+            {bookings.map((b) => (
+              <option key={b.id} value={b.id}>{b.reference} · {b.guestName} · {b.villaName}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Description"><input value={f.description} onChange={(e) => set("description", e.target.value)} className={inputCls} /></Field>
+        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn type="submit" disabled={saving}>{saving ? "Saving…" : "Save changes"}</Btn>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
