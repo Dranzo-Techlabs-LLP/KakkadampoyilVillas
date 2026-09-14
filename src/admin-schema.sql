@@ -36,12 +36,17 @@ CREATE TABLE IF NOT EXISTS users (
   email         VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role_id       INT NOT NULL,
+  villa_id      INT NULL DEFAULT NULL,
   is_active     TINYINT(1) NOT NULL DEFAULT 1,
   last_login_at TIMESTAMP NULL DEFAULT NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (role_id) REFERENCES roles(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- villa_id column: CREATE TABLE above already has it for fresh DBs.
+-- For pre-existing DBs, scripts/admin-setup.mjs adds it with a duplicate-safe
+-- ALTER TABLE (MySQL doesn't support IF NOT EXISTS on ADD COLUMN).
 
 -- ───────────────────────────────── villas
 CREATE TABLE IF NOT EXISTS villas (
@@ -169,7 +174,8 @@ INSERT IGNORE INTO permissions (`key`, label, category) VALUES
 INSERT IGNORE INTO roles (name, description, is_system) VALUES
   ('Administrator', 'Full access to every feature', 1),
   ('Manager',       'Bookings, calendar, accounting & reports', 1),
-  ('Front Desk',    'Bookings & calendar only', 1);
+  ('Front Desk',    'Bookings & calendar only', 1),
+  ('Owner',         'Villa owner — reports of their own villa only', 1);
 
 -- Administrator → all permissions
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
@@ -189,6 +195,14 @@ INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p
   ON p.`key` IN ('dashboard.view','calendar.view','bookings.view','bookings.manage')
 WHERE r.name = 'Front Desk';
+
+-- Owner → reports + accounting (both auto-scoped to the owner's villa_id
+-- server-side). No villas.view — the villas GET endpoint accepts any
+-- authenticated user (see /api/admin/villas) so owner UI can label the villa.
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p
+  ON p.`key` IN ('reports.view','accounting.view')
+WHERE r.name = 'Owner';
 
 -- ───────────────────────────────── seed villas
 INSERT IGNORE INTO villas (slug, name, capacity, bedrooms, base_rate, color) VALUES

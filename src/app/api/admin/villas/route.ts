@@ -2,18 +2,22 @@ import { NextRequest } from "next/server";
 import { q, exec } from "@/lib/db";
 import { guard, json, err } from "@/lib/api";
 import { audit } from "@/lib/audit";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
+// GET is open to any authenticated user — villa metadata (name, colour) is
+// needed by report dropdowns and print titles, including for Owner accounts
+// that don't have `villas.view`.
 export async function GET() {
-  return guard("villas.view", async () => {
-    const villas = await q(
-      `SELECT id, slug, name, capacity, bedrooms, base_rate AS baseRate,
-              color, is_active AS isActive
-         FROM villas ORDER BY id`
-    );
-    return json({ villas });
-  });
+  const user = await getSessionUser();
+  if (!user) return err("Unauthorized", 401);
+  const villas = await q(
+    `SELECT id, slug, name, capacity, bedrooms, base_rate AS baseRate,
+            color, is_active AS isActive
+       FROM villas ORDER BY id`
+  );
+  return json({ villas });
 }
 
 export async function PATCH(req: NextRequest) {

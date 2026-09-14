@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, Btn, api, fmtMoney } from "@/components/admin/ui";
+import { useAdmin } from "@/components/admin/AdminShell";
 import { Download, FileText, Printer, CheckCircle2, X } from "lucide-react";
 
 function monthStart() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`; }
@@ -53,9 +54,11 @@ function computeTotals(type: string, rows: any[]) {
 }
 
 export default function ReportsPage() {
+  const me = useAdmin();
+  const scopedVillaId = me?.villaId ?? null;
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
-  const [villa, setVilla] = useState("");
+  const [villa, setVilla] = useState(scopedVillaId ? String(scopedVillaId) : "");
   const [basis, setBasis] = useState<"stay" | "cash">("stay");
   const [villas, setVillas] = useState<any[]>([]);
   const [preview, setPreview] = useState<{ type: string; rows: any[]; totals?: { credited: number; debited: number; overall: number; entries: number } } | null>(null);
@@ -109,9 +112,17 @@ export default function ReportsPage() {
           <label className="text-sm"><span className="mb-1 block text-xs text-slate-500">To</span>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
           <label className="text-sm"><span className="mb-1 block text-xs text-slate-500">Villa</span>
-            <select value={villa} onChange={(e) => setVilla(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">All villas</option>
-              {villas.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            <select
+              value={villa}
+              onChange={(e) => setVilla(e.target.value)}
+              disabled={!!scopedVillaId}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+              title={scopedVillaId ? "Your account is scoped to one villa" : undefined}
+            >
+              {!scopedVillaId && <option value="">All villas</option>}
+              {villas
+                .filter((v) => !scopedVillaId || String(v.id) === String(scopedVillaId))
+                .map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select></label>
           <div className="text-sm">
             <span className="mb-1 block text-xs text-slate-500">Period basis</span>

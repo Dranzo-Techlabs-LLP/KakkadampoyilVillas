@@ -18,6 +18,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const p: any = { id };
     if (b.name) { fields.push("name = :name"); p.name = b.name; }
     if (b.roleId) { fields.push("role_id = :roleId"); p.roleId = b.roleId; }
+    if ("villaId" in b) {
+      // Explicit null clears the scoping; a number sets it.
+      fields.push("villa_id = :villaId");
+      p.villaId = b.villaId ? Number(b.villaId) : null;
+    }
     if (typeof b.isActive === "boolean") { fields.push("is_active = :active"); p.active = b.isActive ? 1 : 0; }
     if (b.password) {
       if (String(b.password).length < 6) return err("Password min 6 chars");

@@ -10,8 +10,11 @@ export async function GET() {
   return guard("users.view", async () => {
     const users = await q(
       `SELECT u.id, u.name, u.email, u.role_id AS roleId, r.name AS roleName,
+              u.villa_id AS villaId, v.name AS villaName,
               u.is_active AS isActive, u.last_login_at AS lastLoginAt, u.created_at AS createdAt
-         FROM users u JOIN roles r ON r.id = u.role_id
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+         LEFT JOIN villas v ON v.id = u.villa_id
         ORDER BY u.id`
     );
     return json({ users });
@@ -29,10 +32,15 @@ export async function POST(req: NextRequest) {
     if (String(b.password).length < 6) return err("Password min 6 chars");
 
     const hash = await hashPassword(String(b.password));
+    const villaId = b.villaId ? Number(b.villaId) : null;
     const res = await exec(
-      `INSERT INTO users (name, email, password_hash, role_id, is_active)
-       VALUES (:name, :email, :hash, :roleId, :active)`,
-      { name: b.name, email, hash, roleId: b.roleId, active: b.isActive === false ? 0 : 1 }
+      `INSERT INTO users (name, email, password_hash, role_id, villa_id, is_active)
+       VALUES (:name, :email, :hash, :roleId, :villaId, :active)`,
+      {
+        name: b.name, email, hash,
+        roleId: b.roleId, villaId,
+        active: b.isActive === false ? 0 : 1,
+      }
     );
     await audit(user.id, "create", "user", res.insertId, email);
     return json({ ok: true, id: res.insertId });

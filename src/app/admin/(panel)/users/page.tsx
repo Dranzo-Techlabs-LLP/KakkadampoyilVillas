@@ -10,11 +10,16 @@ export default function UsersPage() {
   const canManage = useCan("users.manage");
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [villas, setVillas] = useState<any[]>([]);
   const [modal, setModal] = useState<null | { mode: "new" | "edit"; user?: any }>(null);
 
   async function load() {
-    const [u, r] = await Promise.all([api("/api/admin/users"), api("/api/admin/roles")]);
-    setUsers(u.users || []); setRoles(r.roles || []);
+    const [u, r, v] = await Promise.all([
+      api("/api/admin/users"),
+      api("/api/admin/roles"),
+      api("/api/admin/villas").catch(() => ({ villas: [] })),
+    ]);
+    setUsers(u.users || []); setRoles(r.roles || []); setVillas(v.villas || []);
   }
   useEffect(() => { load().catch(() => {}); }, []);
 
@@ -29,6 +34,7 @@ export default function UsersPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Role</th>
+              <th className="px-5 py-3">Villa</th>
               <th className="px-5 py-3">Status</th><th className="px-5 py-3">Last login</th><th className="px-5 py-3"></th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -37,6 +43,7 @@ export default function UsersPage() {
                 <td className="px-5 py-3 font-medium">{u.name}{u.id === me?.id && <span className="ml-2 text-xs text-emerald-600">(you)</span>}</td>
                 <td className="px-5 py-3 text-slate-600">{u.email}</td>
                 <td className="px-5 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{u.roleName}</span></td>
+                <td className="px-5 py-3 text-slate-500">{u.villaName || <span className="text-slate-300">—</span>}</td>
                 <td className="px-5 py-3">{u.isActive ? <span className="text-emerald-700">Active</span> : <span className="text-red-500">Disabled</span>}</td>
                 <td className="px-5 py-3 text-slate-500">{u.lastLoginAt ? fmtDate(u.lastLoginAt) : "Never"}</td>
                 <td className="px-5 py-3 text-right">
@@ -49,29 +56,41 @@ export default function UsersPage() {
       </Card>
 
       {modal && (
-        <UserModal mode={modal.mode} user={modal.user} roles={roles} meId={me?.id}
+        <UserModal mode={modal.mode} user={modal.user} roles={roles} villas={villas} meId={me?.id}
           onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
       )}
     </div>
   );
 }
 
-function UserModal({ mode, user, roles, meId, onClose, onSaved }: any) {
+function UserModal({ mode, user, roles, villas, meId, onClose, onSaved }: any) {
   const [f, setF] = useState({
     name: user?.name || "", email: user?.email || "", password: "",
-    roleId: user?.roleId || roles[0]?.id || "", isActive: user ? !!user.isActive : true,
+    roleId: user?.roleId || roles[0]?.id || "",
+    villaId: user?.villaId ? String(user.villaId) : "",
+    isActive: user ? !!user.isActive : true,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
 
+  const selectedRoleName = roles.find((r: any) => String(r.id) === String(f.roleId))?.name || "";
+  const isOwner = selectedRoleName === "Owner";
+
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
+    if (isOwner && !f.villaId) {
+      setError("Owner role requires a villa"); setSaving(false); return;
+    }
     try {
+      // Only send villaId when the role is Owner; otherwise clear it explicitly.
+      const villaPayload = isOwner ? Number(f.villaId) : null;
       if (mode === "new") {
-        await api("/api/admin/users", { method: "POST", body: JSON.stringify({ ...f, roleId: Number(f.roleId) }) });
+        await api("/api/admin/users", { method: "POST", body: JSON.stringify({
+          ...f, roleId: Number(f.roleId), villaId: villaPayload,
+        }) });
       } else {
-        const body: any = { name: f.name, roleId: Number(f.roleId), isActive: f.isActive };
+        const body: any = { name: f.name, roleId: Number(f.roleId), villaId: villaPayload, isActive: f.isActive };
         if (f.password) body.password = f.password;
         await api(`/api/admin/users/${user.id}`, { method: "PATCH", body: JSON.stringify(body) });
       }
@@ -100,6 +119,14 @@ function UserModal({ mode, user, roles, meId, onClose, onSaved }: any) {
             {roles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </Field>
+        {isOwner && (
+          <Field label="Villa (this owner will only see this villa's reports)" required>
+            <select value={f.villaId} onChange={(e) => set("villaId", e.target.value)} className={inputCls} required>
+              <option value="">Select a villa…</option>
+              {villas.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </Field>
+        )}
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.isActive} onChange={(e) => set("isActive", e.target.checked)} /> Active</label>
         {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
         <div className="flex items-center justify-between pt-2">

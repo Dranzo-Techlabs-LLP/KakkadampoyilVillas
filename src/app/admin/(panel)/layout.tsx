@@ -12,6 +12,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
         name: user.name,
         email: user.email,
         roleName: user.roleName,
+        villaId: user.villaId,
         permissions: user.permissions,
       }}
     >

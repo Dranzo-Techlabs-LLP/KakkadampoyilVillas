@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, Stat, Badge, fmtMoney, fmtDate, api } from "@/components/admin/ui";
 import { useAdmin } from "@/components/admin/AdminShell";
+import { NAV } from "@/lib/adminNav";
 import { CalendarDays, LogIn, LogOut, TrendingUp } from "lucide-react";
 
 function todayISO() {
@@ -22,13 +24,26 @@ function plusDays(iso: string, days: number) {
 
 export default function Dashboard() {
   const user = useAdmin();
+  const router = useRouter();
   const [bookings, setBookings] = useState<any[]>([]);
   const [acct, setAcct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const today = todayISO();
+  const canDashboard = user?.permissions.includes("dashboard.view");
+
+  // Owner-style accounts (no dashboard.view) land here from /admin; bounce
+  // them to the first page they can actually see (Reports for owners).
+  useEffect(() => {
+    if (!user) return;
+    if (!canDashboard) {
+      const first = NAV.find((n) => user.permissions.includes(n.perm));
+      if (first) router.replace(first.href);
+    }
+  }, [user, canDashboard, router]);
 
   useEffect(() => {
+    if (!canDashboard) { setLoading(false); return; }
     (async () => {
       try {
         const horizon = plusDays(today, 30);
@@ -41,7 +56,11 @@ export default function Dashboard() {
       } catch { /* */ } finally { setLoading(false); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canDashboard]);
+
+  if (!canDashboard) {
+    return <div className="text-sm text-slate-500">Redirecting…</div>;
+  }
 
   const checkinsToday = bookings.filter((b) => b.checkIn?.slice(0, 10) === today && b.status !== "cancelled");
   const checkoutsToday = bookings.filter((b) => b.checkOut?.slice(0, 10) === today && b.status !== "cancelled");

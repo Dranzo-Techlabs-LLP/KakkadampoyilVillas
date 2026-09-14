@@ -17,6 +17,8 @@ export interface SessionUser {
   email: string;
   roleId: number;
   roleName: string;
+  /** Villa this user is scoped to (Owner role); null for staff/admin who see all villas. */
+  villaId: number | null;
   permissions: string[];
 }
 
@@ -68,8 +70,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!uid) return null;
 
   const row = await q1<any>(
-    `SELECT u.id, u.name, u.email, u.role_id AS roleId, u.is_active AS isActive,
-            r.name AS roleName
+    `SELECT u.id, u.name, u.email, u.role_id AS roleId, u.villa_id AS villaId,
+            u.is_active AS isActive, r.name AS roleName
        FROM users u JOIN roles r ON r.id = u.role_id
       WHERE u.id = :uid`,
     { uid }
@@ -90,6 +92,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     email: row.email,
     roleId: row.roleId,
     roleName: row.roleName,
+    villaId: row.villaId ?? null,
     permissions: perms.map((p) => p.key),
   };
 }

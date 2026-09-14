@@ -6,12 +6,14 @@ export const runtime = "nodejs";
 
 // GET /api/admin/reports?type=bookings|payments|expenses|combined&from=&to=&villa=&format=csv
 export async function GET(req: NextRequest) {
-  return guard("reports.view", async () => {
+  return guard("reports.view", async (user) => {
     const sp = req.nextUrl.searchParams;
     const type = sp.get("type") || "bookings";
     const from = sp.get("from") || "2000-01-01";
     const to = sp.get("to") || "2999-12-31";
-    const villa = sp.get("villa") ? Number(sp.get("villa")) : null;
+    // Owners are hard-scoped to their own villa; the query-param villa is
+    // ignored for them so URL manipulation can't leak other villas' data.
+    const villa = user.villaId ?? (sp.get("villa") ? Number(sp.get("villa")) : null);
     const format = sp.get("format") || "json";
     // basis=stay → group by the booking's stay month (check_in).
     // basis=cash → group by the actual transaction date (paid_on / spent_on),

@@ -6,11 +6,12 @@ export const runtime = "nodejs";
 
 // GET /api/admin/accounting?from=&to=&villa=
 export async function GET(req: NextRequest) {
-  return guard("accounting.view", async () => {
+  return guard("accounting.view", async (user) => {
     const sp = req.nextUrl.searchParams;
     const from = sp.get("from") || "2000-01-01";
     const to = sp.get("to") || "2999-12-31";
-    const villa = sp.get("villa") ? Number(sp.get("villa")) : null;
+    // Owner accounts are hard-scoped to their own villa (query-param ignored).
+    const villa = user.villaId ?? (sp.get("villa") ? Number(sp.get("villa")) : null);
 
     const villaPay = villa ? "AND b.villa_id = :villa" : "";
     const villaExp = villa ? "AND e.villa_id = :villa" : "";

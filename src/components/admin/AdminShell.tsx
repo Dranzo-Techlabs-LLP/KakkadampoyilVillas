@@ -17,6 +17,7 @@ const icons: Record<string, any> = {
 
 export interface ShellUser {
   id: number; name: string; email: string; roleName: string; permissions: string[];
+  villaId: number | null;
 }
 
 const UserCtx = createContext<ShellUser | null>(null);
