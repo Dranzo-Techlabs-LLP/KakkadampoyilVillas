@@ -47,6 +47,22 @@ CREATE TABLE IF NOT EXISTS users (
 -- villa_id column: CREATE TABLE above already has it for fresh DBs.
 -- For pre-existing DBs, scripts/admin-setup.mjs adds it with a duplicate-safe
 -- ALTER TABLE (MySQL doesn't support IF NOT EXISTS on ADD COLUMN).
+-- The column is now legacy — see user_villas below for multi-villa support.
+
+-- ───────────────────────────────── owner ↔ villas (many-to-many)
+CREATE TABLE IF NOT EXISTS user_villas (
+  user_id  INT NOT NULL,
+  villa_id INT NOT NULL,
+  PRIMARY KEY (user_id, villa_id),
+  FOREIGN KEY (user_id)  REFERENCES users(id)  ON DELETE CASCADE,
+  FOREIGN KEY (villa_id) REFERENCES villas(id) ON DELETE CASCADE,
+  INDEX idx_villa (villa_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Backfill any single-villa Owner rows (from before user_villas existed) into
+-- the new junction table so behaviour is preserved.
+INSERT IGNORE INTO user_villas (user_id, villa_id)
+  SELECT id, villa_id FROM users WHERE villa_id IS NOT NULL;
 
 -- ───────────────────────────────── villas
 CREATE TABLE IF NOT EXISTS villas (

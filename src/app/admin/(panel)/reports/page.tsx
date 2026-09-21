@@ -55,10 +55,11 @@ function computeTotals(type: string, rows: any[]) {
 
 export default function ReportsPage() {
   const me = useAdmin();
-  const scopedVillaId = me?.villaId ?? null;
+  const scopedVillaIds = me?.villaIds ?? [];
+  const isScoped = scopedVillaIds.length > 0;
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
-  const [villa, setVilla] = useState(scopedVillaId ? String(scopedVillaId) : "");
+  const [villa, setVilla] = useState("");   // "" = all (owner's default = all their villas)
   const [basis, setBasis] = useState<"stay" | "cash">("stay");
   const [villas, setVillas] = useState<any[]>([]);
   const [preview, setPreview] = useState<{ type: string; rows: any[]; totals?: { credited: number; debited: number; overall: number; entries: number } } | null>(null);
@@ -115,13 +116,12 @@ export default function ReportsPage() {
             <select
               value={villa}
               onChange={(e) => setVilla(e.target.value)}
-              disabled={!!scopedVillaId}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              title={scopedVillaId ? "Your account is scoped to one villa" : undefined}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              title={isScoped ? "Your account is scoped to specific villas" : undefined}
             >
-              {!scopedVillaId && <option value="">All villas</option>}
+              <option value="">{isScoped ? "All my villas" : "All villas"}</option>
               {villas
-                .filter((v) => !scopedVillaId || String(v.id) === String(scopedVillaId))
+                .filter((v) => !isScoped || scopedVillaIds.includes(v.id))
                 .map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select></label>
           <div className="text-sm">

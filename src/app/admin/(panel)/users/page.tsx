@@ -43,7 +43,11 @@ export default function UsersPage() {
                 <td className="px-5 py-3 font-medium">{u.name}{u.id === me?.id && <span className="ml-2 text-xs text-emerald-600">(you)</span>}</td>
                 <td className="px-5 py-3 text-slate-600">{u.email}</td>
                 <td className="px-5 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{u.roleName}</span></td>
-                <td className="px-5 py-3 text-slate-500">{u.villaName || <span className="text-slate-300">—</span>}</td>
+                <td className="px-5 py-3 text-slate-500">
+                  {u.villaNames && u.villaNames.length > 0
+                    ? u.villaNames.join(", ")
+                    : <span className="text-slate-300">—</span>}
+                </td>
                 <td className="px-5 py-3">{u.isActive ? <span className="text-emerald-700">Active</span> : <span className="text-red-500">Disabled</span>}</td>
                 <td className="px-5 py-3 text-slate-500">{u.lastLoginAt ? fmtDate(u.lastLoginAt) : "Never"}</td>
                 <td className="px-5 py-3 text-right">
@@ -67,7 +71,7 @@ function UserModal({ mode, user, roles, villas, meId, onClose, onSaved }: any) {
   const [f, setF] = useState({
     name: user?.name || "", email: user?.email || "", password: "",
     roleId: user?.roleId || roles[0]?.id || "",
-    villaId: user?.villaId ? String(user.villaId) : "",
+    villaIds: (user?.villaIds || []) as number[],
     isActive: user ? !!user.isActive : true,
   });
   const [saving, setSaving] = useState(false);
@@ -77,20 +81,29 @@ function UserModal({ mode, user, roles, villas, meId, onClose, onSaved }: any) {
   const selectedRoleName = roles.find((r: any) => String(r.id) === String(f.roleId))?.name || "";
   const isOwner = selectedRoleName === "Owner";
 
+  function toggleVilla(id: number) {
+    setF((p: any) => {
+      const set = new Set<number>(p.villaIds);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      return { ...p, villaIds: Array.from(set) };
+    });
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
-    if (isOwner && !f.villaId) {
-      setError("Owner role requires a villa"); setSaving(false); return;
+    if (isOwner && f.villaIds.length === 0) {
+      setError("Owner role requires at least one villa"); setSaving(false); return;
     }
     try {
-      // Only send villaId when the role is Owner; otherwise clear it explicitly.
-      const villaPayload = isOwner ? Number(f.villaId) : null;
+      // Only send villaIds when the role is Owner; otherwise clear scoping.
+      const villaPayload = isOwner ? f.villaIds.map((n: number) => Number(n)) : [];
       if (mode === "new") {
         await api("/api/admin/users", { method: "POST", body: JSON.stringify({
-          ...f, roleId: Number(f.roleId), villaId: villaPayload,
+          ...f, roleId: Number(f.roleId), villaIds: villaPayload,
         }) });
       } else {
-        const body: any = { name: f.name, roleId: Number(f.roleId), villaId: villaPayload, isActive: f.isActive };
+        const body: any = { name: f.name, roleId: Number(f.roleId), villaIds: villaPayload, isActive: f.isActive };
         if (f.password) body.password = f.password;
         await api(`/api/admin/users/${user.id}`, { method: "PATCH", body: JSON.stringify(body) });
       }
@@ -120,11 +133,30 @@ function UserModal({ mode, user, roles, villas, meId, onClose, onSaved }: any) {
           </select>
         </Field>
         {isOwner && (
-          <Field label="Villa (this owner will only see this villa's reports)" required>
-            <select value={f.villaId} onChange={(e) => set("villaId", e.target.value)} className={inputCls} required>
-              <option value="">Select a villa…</option>
-              {villas.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
+          <Field label="Villas (this owner will only see reports for the villas ticked)" required>
+            <div className="space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-3">
+              {villas.length === 0 ? (
+                <p className="text-xs text-slate-500">No villas found.</p>
+              ) : villas.map((v: any) => {
+                const checked = f.villaIds.includes(v.id);
+                return (
+                  <label key={v.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleVilla(v.id)}
+                    />
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.color }} />
+                      {v.name}
+                    </span>
+                  </label>
+                );
+              })}
+              <p className="pt-1 text-xs text-slate-500">
+                Tick one or more villas. Report totals will span every villa ticked.
+              </p>
+            </div>
           </Field>
         )}
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.isActive} onChange={(e) => set("isActive", e.target.checked)} /> Active</label>

@@ -17,8 +17,11 @@ export interface SessionUser {
   email: string;
   roleId: number;
   roleName: string;
-  /** Villa this user is scoped to (Owner role); null for staff/admin who see all villas. */
-  villaId: number | null;
+  /**
+   * Villas this user is scoped to (Owner role). Empty for staff/admin who see
+   * all villas. When non-empty, reports/accounting hard-filter to these ids.
+   */
+  villaIds: number[];
   permissions: string[];
 }
 
@@ -70,7 +73,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!uid) return null;
 
   const row = await q1<any>(
-    `SELECT u.id, u.name, u.email, u.role_id AS roleId, u.villa_id AS villaId,
+    `SELECT u.id, u.name, u.email, u.role_id AS roleId,
             u.is_active AS isActive, r.name AS roleName
        FROM users u JOIN roles r ON r.id = u.role_id
       WHERE u.id = :uid`,
@@ -78,13 +81,19 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   );
   if (!row || !row.isActive) return null;
 
-  const perms = await q<{ key: string }>(
-    `SELECT p.\`key\` AS \`key\`
-       FROM role_permissions rp
-       JOIN permissions p ON p.id = rp.permission_id
-      WHERE rp.role_id = :roleId`,
-    { roleId: row.roleId }
-  );
+  const [perms, villas] = await Promise.all([
+    q<{ key: string }>(
+      `SELECT p.\`key\` AS \`key\`
+         FROM role_permissions rp
+         JOIN permissions p ON p.id = rp.permission_id
+        WHERE rp.role_id = :roleId`,
+      { roleId: row.roleId }
+    ),
+    q<{ villaId: number }>(
+      `SELECT villa_id AS villaId FROM user_villas WHERE user_id = :uid`,
+      { uid: row.id }
+    ),
+  ]);
 
   return {
     id: row.id,
@@ -92,7 +101,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     email: row.email,
     roleId: row.roleId,
     roleName: row.roleName,
-    villaId: row.villaId ?? null,
+    villaIds: villas.map((v) => Number(v.villaId)),
     permissions: perms.map((p) => p.key),
   };
 }

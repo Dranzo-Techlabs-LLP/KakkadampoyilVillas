@@ -18,20 +18,33 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const p: any = { id };
     if (b.name) { fields.push("name = :name"); p.name = b.name; }
     if (b.roleId) { fields.push("role_id = :roleId"); p.roleId = b.roleId; }
-    if ("villaId" in b) {
-      // Explicit null clears the scoping; a number sets it.
-      fields.push("villa_id = :villaId");
-      p.villaId = b.villaId ? Number(b.villaId) : null;
-    }
     if (typeof b.isActive === "boolean") { fields.push("is_active = :active"); p.active = b.isActive ? 1 : 0; }
     if (b.password) {
       if (String(b.password).length < 6) return err("Password min 6 chars");
       fields.push("password_hash = :hash");
       p.hash = await hashPassword(String(b.password));
     }
-    if (!fields.length) return err("Nothing to update");
 
-    await exec(`UPDATE users SET ${fields.join(", ")} WHERE id = :id`, p);
+    // villaIds: replace-in-place. Empty array clears scoping (staff/admin).
+    const villaIdsPresent = Array.isArray(b.villaIds);
+    if (fields.length) {
+      await exec(`UPDATE users SET ${fields.join(", ")} WHERE id = :id`, p);
+    } else if (!villaIdsPresent) {
+      return err("Nothing to update");
+    }
+
+    if (villaIdsPresent) {
+      await exec(`DELETE FROM user_villas WHERE user_id = :id`, { id });
+      const villaIds: number[] = b.villaIds
+        .map((v: any) => Number(v))
+        .filter((n: number) => Number.isFinite(n) && n > 0);
+      if (villaIds.length) {
+        const values = villaIds.map(() => "(?, ?)").join(",");
+        const params = villaIds.flatMap((vid) => [Number(id), vid]);
+        await exec(`INSERT IGNORE INTO user_villas (user_id, villa_id) VALUES ${values}`, params);
+      }
+    }
+
     await audit(actor.id, "update", "user", Number(id));
     return json({ ok: true });
   });

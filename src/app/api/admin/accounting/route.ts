@@ -10,12 +10,28 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams;
     const from = sp.get("from") || "2000-01-01";
     const to = sp.get("to") || "2999-12-31";
-    // Owner accounts are hard-scoped to their own villa (query-param ignored).
-    const villa = user.villaId ?? (sp.get("villa") ? Number(sp.get("villa")) : null);
+    const requestedVilla = sp.get("villa") ? Number(sp.get("villa")) : null;
+    // Owner scoping: villaIds is a hard boundary. A requested villa inside the
+    // boundary narrows to that one; otherwise the owner sees all their villas.
+    const scopedVillas: number[] = user.villaIds && user.villaIds.length
+      ? (requestedVilla && user.villaIds.includes(requestedVilla)
+          ? [requestedVilla]
+          : user.villaIds)
+      : (requestedVilla ? [requestedVilla] : []);
+    const villaParams: Record<string, number> = {};
+    scopedVillas.forEach((id, i) => { villaParams[`vs${i}`] = id; });
+    const villaIn = scopedVillas.length
+      ? "IN (" + scopedVillas.map((_, i) => `:vs${i}`).join(",") + ")"
+      : "";
+    const perVillaIn = user.villaIds && user.villaIds.length
+      ? "WHERE v.id IN (" + user.villaIds.map((_, i) => `:pvs${i}`).join(",") + ")"
+      : "";
+    const perVillaParams: Record<string, number> = {};
+    if (user.villaIds) user.villaIds.forEach((id, i) => { perVillaParams[`pvs${i}`] = id; });
 
-    const villaPay = villa ? "AND b.villa_id = :villa" : "";
-    const villaExp = villa ? "AND e.villa_id = :villa" : "";
-    const p: any = { from, to, villa };
+    const villaPay = villaIn ? `AND b.villa_id ${villaIn}` : "";
+    const villaExp = villaIn ? `AND e.villa_id ${villaIn}` : "";
+    const p: any = { from, to, ...villaParams };
 
     // Revenue from payments (collected money), net of refunds, plus the B2B
     // commission slice that is passed through to partners. B2B is only owed
@@ -45,11 +61,12 @@ export async function GET(req: NextRequest) {
       `SELECT COALESCE(SUM(b.total_amount),0) AS total, COUNT(*) AS count
          FROM bookings b
         WHERE b.status IN ('confirmed','checked_in','completed')
-          AND b.check_in BETWEEN :from AND :to ${villa ? "AND b.villa_id = :villa" : ""}`,
+          AND b.check_in BETWEEN :from AND :to ${villaPay}`,
       p
     );
 
     // Per-villa breakdown — revenue net of refunds AND B2B; expenses exclude B2B.
+    // For owners, restrict the villa list to their own villas.
     const perVilla = await q(
       `SELECT v.id, v.name, v.color,
               COALESCE((SELECT SUM(
@@ -68,8 +85,8 @@ export async function GET(req: NextRequest) {
               (SELECT COUNT(*) FROM bookings b
                  WHERE b.villa_id = v.id AND b.status <> 'cancelled'
                    AND b.check_in BETWEEN :from AND :to) AS bookings
-         FROM villas v ORDER BY v.id`,
-      { from, to }
+         FROM villas v ${perVillaIn} ORDER BY v.id`,
+      { from, to, ...perVillaParams }
     );
 
     const collected = Number(rev?.collected || 0);

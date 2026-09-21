@@ -11,9 +11,22 @@ export async function GET(req: NextRequest) {
     const type = sp.get("type") || "bookings";
     const from = sp.get("from") || "2000-01-01";
     const to = sp.get("to") || "2999-12-31";
-    // Owners are hard-scoped to their own villa; the query-param villa is
-    // ignored for them so URL manipulation can't leak other villas' data.
-    const villa = user.villaId ?? (sp.get("villa") ? Number(sp.get("villa")) : null);
+    const requestedVilla = sp.get("villa") ? Number(sp.get("villa")) : null;
+    // Owner scoping: user.villaIds is the hard boundary. If the request asks
+    // for one specific villa AND it's in the owner's list, narrow to that one;
+    // otherwise show all of the owner's villas. For staff/admin (villaIds=[])
+    // the requested villa (if any) is honoured verbatim.
+    const scopedVillas: number[] = user.villaIds && user.villaIds.length
+      ? (requestedVilla && user.villaIds.includes(requestedVilla)
+          ? [requestedVilla]
+          : user.villaIds)
+      : (requestedVilla ? [requestedVilla] : []);
+    // Build a reusable "IN (:vs0,:vs1,…)" fragment (empty string = no filter).
+    const villaParams: Record<string, number> = {};
+    scopedVillas.forEach((id, i) => { villaParams[`vs${i}`] = id; });
+    const villaIn = scopedVillas.length
+      ? "IN (" + scopedVillas.map((_, i) => `:vs${i}`).join(",") + ")"
+      : "";
     const format = sp.get("format") || "json";
     // basis=stay → group by the booking's stay month (check_in).
     // basis=cash → group by the actual transaction date (paid_on / spent_on),
@@ -35,9 +48,9 @@ export async function GET(req: NextRequest) {
                             FROM payments WHERE booking_id=b.id),0) AS Paid,
                 b.source AS Source
            FROM bookings b JOIN villas v ON v.id = b.villa_id
-          WHERE b.check_in BETWEEN :from AND :to ${villa ? "AND b.villa_id=:villa" : ""}
+          WHERE b.check_in BETWEEN :from AND :to ${villaIn ? `AND b.villa_id ${villaIn}` : ""}
           ORDER BY b.check_in DESC`,
-        { from, to, villa }
+        { from, to, ...villaParams }
       );
     } else if (type === "payments") {
       // stay basis → filter by the stay month; cash basis → by the payment date.
@@ -47,9 +60,9 @@ export async function GET(req: NextRequest) {
                 b.reference AS Booking, v.name AS Villa, b.source AS Source,
                 pm.kind AS Kind, pm.amount AS Amount, pm.method AS Method, pm.reference AS Ref
            FROM payments pm JOIN bookings b ON b.id = pm.booking_id JOIN villas v ON v.id = b.villa_id
-          WHERE ${dateFilter} BETWEEN :from AND :to ${villa ? "AND b.villa_id=:villa" : ""}
+          WHERE ${dateFilter} BETWEEN :from AND :to ${villaIn ? `AND b.villa_id ${villaIn}` : ""}
           ORDER BY ${dateFilter} DESC, pm.paid_on DESC`,
-        { from, to, villa }
+        { from, to, ...villaParams }
       );
     } else if (type === "expenses") {
       // stay basis → booking-linked expenses sit in the stay's month;
@@ -68,17 +81,17 @@ export async function GET(req: NextRequest) {
            LEFT JOIN bookings b ON b.id = e.booking_id
           WHERE ${dateFilter} BETWEEN :from AND :to
                 AND NOT (e.category = 'B2B Commission' AND b.status = 'cancelled')
-                ${villa ? "AND e.villa_id=:villa" : ""}
+                ${villaIn ? `AND e.villa_id ${villaIn}` : ""}
           ORDER BY ${dateFilter} DESC, e.spent_on DESC`,
-        { from, to, villa }
+        { from, to, ...villaParams }
       );
     } else if (type === "combined") {
       // Cash book style: payments = cash in, refunds + expenses = cash out.
       // Report period is based on the stay date (booking.check_in) for anything
       // linked to a booking, and the transaction date for standalone entries.
       // This means an August advance for a September stay appears in September.
-      const villaClauseP = villa ? "AND b.villa_id = :villa" : "";
-      const villaClauseE = villa ? "AND e.villa_id = :villa" : "";
+      const villaClauseP = villaIn ? `AND b.villa_id ${villaIn}` : "";
+      const villaClauseE = villaIn ? `AND e.villa_id ${villaIn}` : "";
       // Date filter column per basis.
       const payFilter = basis === "cash" ? "pm.paid_on" : "b.check_in";
       const expFilter = basis === "cash" ? "e.spent_on" : "COALESCE(bx.check_in, e.spent_on)";
@@ -141,7 +154,7 @@ export async function GET(req: NextRequest) {
               ${villaClauseE}
          ) x
          ORDER BY ${orderBy}`,
-        { from, to, villa }
+        { from, to, ...villaParams }
       );
 
       let balance = 0;
