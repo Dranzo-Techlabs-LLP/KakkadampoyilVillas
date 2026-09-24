@@ -212,12 +212,14 @@ SELECT r.id, p.id FROM roles r JOIN permissions p
   ON p.`key` IN ('dashboard.view','calendar.view','bookings.view','bookings.manage')
 WHERE r.name = 'Front Desk';
 
--- Owner → reports + accounting (both auto-scoped to the owner's villa_id
--- server-side). No villas.view — the villas GET endpoint accepts any
--- authenticated user (see /api/admin/villas) so owner UI can label the villa.
+-- Owner → dashboard + villa view + bookings/expenses/payments view + accounting
+-- + reports. Everything is auto-scoped server-side to the owner's villa list.
+-- No *.manage permissions — Owner is read-only.
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p
-  ON p.`key` IN ('reports.view','accounting.view')
+  ON p.`key` IN ('dashboard.view','villas.view','bookings.view',
+                 'payments.view','expenses.view',
+                 'accounting.view','reports.view')
 WHERE r.name = 'Owner';
 
 -- ───────────────────────────────── seed villas

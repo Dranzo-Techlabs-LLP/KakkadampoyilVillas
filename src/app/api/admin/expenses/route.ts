@@ -6,11 +6,23 @@ import { audit } from "@/lib/audit";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  return guard("expenses.view", async () => {
+  return guard("expenses.view", async (user) => {
     const sp = req.nextUrl.searchParams;
     const where: string[] = ["1=1"];
     const p: any = {};
-    if (sp.get("villa")) { where.push("e.villa_id = :villa"); p.villa = Number(sp.get("villa")); }
+    // Owner scoping: only their villa's expenses, general/no-villa expenses hidden.
+    const requestedVilla = sp.get("villa") ? Number(sp.get("villa")) : null;
+    if (user.villaIds && user.villaIds.length) {
+      const set = (requestedVilla && user.villaIds.includes(requestedVilla))
+        ? [requestedVilla]
+        : user.villaIds;
+      const placeholders = set.map((_, i) => `:vs${i}`).join(",");
+      set.forEach((id, i) => { p[`vs${i}`] = id; });
+      where.push(`e.villa_id IN (${placeholders})`);
+    } else if (requestedVilla) {
+      where.push("e.villa_id = :villa");
+      p.villa = requestedVilla;
+    }
     if (sp.get("from")) { where.push("e.spent_on >= :from"); p.from = sp.get("from"); }
     if (sp.get("to")) { where.push("e.spent_on <= :to"); p.to = sp.get("to"); }
 

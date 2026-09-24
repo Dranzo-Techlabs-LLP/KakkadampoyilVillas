@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  return guard("bookings.view", async () => {
+  return guard("bookings.view", async (user) => {
     const { id } = await params;
     const booking = await q1<any>(
       `SELECT b.*, v.name AS villaName, v.color,
@@ -20,6 +20,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       { id }
     );
     if (!booking) return err("Not found", 404);
+    // Owner scoping — pretend it doesn't exist if it's outside their villas.
+    if (user.villaIds && user.villaIds.length && !user.villaIds.includes(booking.villa_id)) {
+      return err("Not found", 404);
+    }
     const payments = await q(
       `SELECT id, kind, amount, b2b_amount AS b2bAmount, method, reference, note, paid_on AS paidOn, created_at AS createdAt
          FROM payments WHERE booking_id = :id ORDER BY paid_on, id`,

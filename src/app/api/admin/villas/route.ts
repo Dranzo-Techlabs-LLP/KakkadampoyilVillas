@@ -7,11 +7,23 @@ import { getSessionUser } from "@/lib/auth";
 export const runtime = "nodejs";
 
 // GET is open to any authenticated user — villa metadata (name, colour) is
-// needed by report dropdowns and print titles, including for Owner accounts
-// that don't have `villas.view`.
+// needed by report dropdowns and print titles. Owners see only the villas
+// they are scoped to.
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return err("Unauthorized", 401);
+  if (user.villaIds && user.villaIds.length) {
+    const placeholders = user.villaIds.map((_, i) => `:vs${i}`).join(",");
+    const params: Record<string, number> = {};
+    user.villaIds.forEach((id, i) => { params[`vs${i}`] = id; });
+    const villas = await q(
+      `SELECT id, slug, name, capacity, bedrooms, base_rate AS baseRate,
+              color, is_active AS isActive
+         FROM villas WHERE id IN (${placeholders}) ORDER BY id`,
+      params
+    );
+    return json({ villas });
+  }
   const villas = await q(
     `SELECT id, slug, name, capacity, bedrooms, base_rate AS baseRate,
             color, is_active AS isActive

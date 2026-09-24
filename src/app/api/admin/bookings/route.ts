@@ -7,11 +7,24 @@ export const runtime = "nodejs";
 
 // GET /api/admin/bookings?villa=&status=&from=&to=&search=
 export async function GET(req: NextRequest) {
-  return guard("bookings.view", async () => {
+  return guard("bookings.view", async (user) => {
     const sp = req.nextUrl.searchParams;
     const where: string[] = ["1=1"];
     const p: any = {};
-    if (sp.get("villa")) { where.push("b.villa_id = :villa"); p.villa = Number(sp.get("villa")); }
+    // Owner scoping: hard-limit to their villas. A query-param villa inside
+    // that set narrows to that one; outside → the whole owner set (no leak).
+    const requestedVilla = sp.get("villa") ? Number(sp.get("villa")) : null;
+    if (user.villaIds && user.villaIds.length) {
+      const set = (requestedVilla && user.villaIds.includes(requestedVilla))
+        ? [requestedVilla]
+        : user.villaIds;
+      const placeholders = set.map((_, i) => `:vs${i}`).join(",");
+      set.forEach((id, i) => { p[`vs${i}`] = id; });
+      where.push(`b.villa_id IN (${placeholders})`);
+    } else if (requestedVilla) {
+      where.push("b.villa_id = :villa");
+      p.villa = requestedVilla;
+    }
     if (sp.get("status")) { where.push("b.status = :status"); p.status = sp.get("status"); }
     if (sp.get("from")) { where.push("b.check_out >= :from"); p.from = sp.get("from"); }
     if (sp.get("to")) { where.push("b.check_in <= :to"); p.to = sp.get("to"); }
