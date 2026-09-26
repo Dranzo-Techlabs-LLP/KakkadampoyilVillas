@@ -31,32 +31,34 @@ export default function UsersPage() {
       </div>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
-            <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Role</th>
-              <th className="px-5 py-3">Villa</th>
-              <th className="px-5 py-3">Status</th><th className="px-5 py-3">Last login</th><th className="px-5 py-3"></th></tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-slate-50">
-                <td className="px-5 py-3 font-medium">{u.name}{u.id === me?.id && <span className="ml-2 text-xs text-emerald-600">(you)</span>}</td>
-                <td className="px-5 py-3 text-slate-600">{u.email}</td>
-                <td className="px-5 py-3"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{u.roleName}</span></td>
-                <td className="px-5 py-3 text-slate-500">
-                  {u.villaNames && u.villaNames.length > 0
-                    ? u.villaNames.join(", ")
-                    : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-5 py-3">{u.isActive ? <span className="text-emerald-700">Active</span> : <span className="text-red-500">Disabled</span>}</td>
-                <td className="px-5 py-3 text-slate-500">{u.lastLoginAt ? fmtDate(u.lastLoginAt) : "Never"}</td>
-                <td className="px-5 py-3 text-right">
-                  {canManage && <button onClick={() => setModal({ mode: "edit", user: u })} className="text-slate-400 hover:text-emerald-700"><Pencil className="h-4 w-4" /></button>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr><th className="px-3 py-3 sm:px-5">Name</th><th className="px-3 py-3 sm:px-5">Email</th><th className="px-3 py-3 sm:px-5">Role</th>
+                <th className="px-3 py-3 sm:px-5">Villa</th>
+                <th className="px-3 py-3 sm:px-5">Status</th><th className="px-3 py-3 sm:px-5">Last login</th><th className="px-3 py-3 sm:px-5"></th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50">
+                  <td className="px-3 py-3 font-medium sm:px-5">{u.name}{u.id === me?.id && <span className="ml-2 text-xs text-emerald-600">(you)</span>}</td>
+                  <td className="px-3 py-3 text-slate-600 sm:px-5">{u.email}</td>
+                  <td className="px-3 py-3 sm:px-5"><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{u.roleName}</span></td>
+                  <td className="px-3 py-3 text-slate-500 sm:px-5">
+                    {u.villaNames && u.villaNames.length > 0
+                      ? u.villaNames.join(", ")
+                      : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-3 py-3 sm:px-5">{u.isActive ? <span className="text-emerald-700">Active</span> : <span className="text-red-500">Disabled</span>}</td>
+                  <td className="px-3 py-3 text-slate-500 sm:px-5">{u.lastLoginAt ? fmtDate(u.lastLoginAt) : "Never"}</td>
+                  <td className="px-3 py-3 text-right sm:px-5">
+                    {canManage && <button onClick={() => setModal({ mode: "edit", user: u })} className="text-slate-400 hover:text-emerald-700"><Pencil className="h-4 w-4" /></button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {modal && (

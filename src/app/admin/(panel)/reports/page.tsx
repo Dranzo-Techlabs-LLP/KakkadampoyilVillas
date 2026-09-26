@@ -230,7 +230,7 @@ export default function ReportsPage() {
                 <p className="p-8 text-center text-sm text-slate-400">No data in this period.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[720px] text-sm">
                     <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
                       <tr>{cols.map((h) => (
                         <th key={h} className={`whitespace-nowrap px-4 py-2.5 ${MONEY_KEYS.has(h) ? "text-right" : ""}`}>{h}</th>

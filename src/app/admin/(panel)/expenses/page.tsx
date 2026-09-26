@@ -54,11 +54,12 @@ export default function ExpensesPage() {
       </div>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
-            <tr><th className="px-5 py-3">Date</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Villa</th>
-              <th className="px-5 py-3">Booking</th>
-              <th className="px-5 py-3">Description</th><th className="px-5 py-3 text-right">Amount</th><th className="px-5 py-3"></th></tr>
+            <tr><th className="px-3 py-3 sm:px-5">Date</th><th className="px-3 py-3 sm:px-5">Category</th><th className="px-3 py-3 sm:px-5">Villa</th>
+              <th className="px-3 py-3 sm:px-5">Booking</th>
+              <th className="px-3 py-3 sm:px-5">Description</th><th className="px-3 py-3 text-right sm:px-5">Amount</th><th className="px-3 py-3 sm:px-5"></th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading…</td></tr>
@@ -97,6 +98,7 @@ export default function ExpensesPage() {
               ))}
           </tbody>
         </table>
+        </div>
       </Card>
 
       {show && <AddExpense villas={villas} bookings={bookings} onClose={() => setShow(false)} onSaved={() => { setShow(false); load(); }} />}

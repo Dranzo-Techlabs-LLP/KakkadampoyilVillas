@@ -54,11 +54,11 @@ export default function BookingsPage() {
                 className={inputCls + " pl-9"} />
             </div>
           </div>
-          <select value={fVilla} onChange={(e) => setFVilla(e.target.value)} className={inputCls + " max-w-[180px]"}>
+          <select value={fVilla} onChange={(e) => setFVilla(e.target.value)} className={inputCls + " w-full sm:max-w-[180px]"}>
             <option value="">All villas</option>
             {villas.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputCls + " max-w-[160px]"}>
+          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputCls + " w-full sm:max-w-[160px]"}>
             <option value="">All status</option>
             {["enquiry","hold","confirmed","checked_in","completed","cancelled"].map((s) =>
               <option key={s} value={s} className="capitalize">{s.replace("_"," ")}</option>)}
@@ -68,7 +68,7 @@ export default function BookingsPage() {
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-slate-50">
               <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="px-4 py-3">Ref</th><th className="px-4 py-3">Guest</th>

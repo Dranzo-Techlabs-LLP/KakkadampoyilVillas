@@ -64,27 +64,29 @@ export default function AccountingPage() {
 
           <Card className="overflow-hidden">
             <div className="border-b border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Per-villa breakdown</div>
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
-                <tr><th className="px-5 py-2.5">Villa</th><th className="px-5 py-2.5 text-right">Revenue</th>
-                  <th className="px-5 py-2.5 text-right">Expenses</th><th className="px-5 py-2.5 text-right">Profit</th>
-                  <th className="px-5 py-2.5 text-right">Bookings</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {data.perVilla.map((v: any) => {
-                  const profit = Number(v.revenue) - Number(v.expenses);
-                  return (
-                    <tr key={v.id}>
-                      <td className="px-5 py-3"><span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: v.color }} />{v.name}</span></td>
-                      <td className="px-5 py-3 text-right tabular-nums text-emerald-700">{fmtMoney(v.revenue)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-amber-600">{fmtMoney(v.expenses)}</td>
-                      <td className={`px-5 py-3 text-right tabular-nums font-medium ${profit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmtMoney(profit)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">{v.bookings}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
+                  <tr><th className="px-3 py-2.5 sm:px-5">Villa</th><th className="px-3 py-2.5 text-right sm:px-5">Revenue</th>
+                    <th className="px-3 py-2.5 text-right sm:px-5">Expenses</th><th className="px-3 py-2.5 text-right sm:px-5">Profit</th>
+                    <th className="px-3 py-2.5 text-right sm:px-5">Bookings</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {data.perVilla.map((v: any) => {
+                    const profit = Number(v.revenue) - Number(v.expenses);
+                    return (
+                      <tr key={v.id}>
+                        <td className="px-3 py-3 sm:px-5"><span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: v.color }} />{v.name}</span></td>
+                        <td className="px-3 py-3 text-right tabular-nums text-emerald-700 sm:px-5">{fmtMoney(v.revenue)}</td>
+                        <td className="px-3 py-3 text-right tabular-nums text-amber-600 sm:px-5">{fmtMoney(v.expenses)}</td>
+                        <td className={`px-3 py-3 text-right tabular-nums font-medium sm:px-5 ${profit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmtMoney(profit)}</td>
+                        <td className="px-3 py-3 text-right tabular-nums sm:px-5">{v.bookings}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </>
       )}

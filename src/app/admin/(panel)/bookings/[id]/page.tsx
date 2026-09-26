@@ -152,7 +152,8 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
         {payments.length === 0 ? (
           <p className="p-6 text-center text-sm text-slate-400">No payments recorded yet.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
               <tr>
                 <th className="px-5 py-2.5">Date</th>
@@ -201,6 +202,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

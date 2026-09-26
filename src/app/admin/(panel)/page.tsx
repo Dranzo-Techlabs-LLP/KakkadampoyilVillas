@@ -135,7 +135,7 @@ export default function Dashboard() {
           <Empty text="No upcoming bookings." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                   <th className="pb-2">Guest</th><th className="pb-2">Villa</th>
