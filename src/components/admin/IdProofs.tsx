@@ -131,8 +131,13 @@ export function IdProofPicker({ files, onChange }: { files: File[]; onChange: (f
 
 type Doc = { id: number; fileName: string; mimeType: string; sizeBytes: number };
 
-/** ID proofs on an existing booking: view, add more, delete. */
-export function BookingDocuments({ bookingId }: { bookingId: string }) {
+/**
+ * ID proofs on an existing booking: view, add more, delete.
+ * `embedded` renders it as a section inside a form (the Edit booking modal)
+ * instead of a standalone card. Uploads/deletes always apply immediately —
+ * they don't wait for the surrounding form's Save button.
+ */
+export function BookingDocuments({ bookingId, embedded = false }: { bookingId: string; embedded?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,10 +176,12 @@ export function BookingDocuments({ bookingId }: { bookingId: string }) {
     } catch (e) { setError(e instanceof Error ? e.message : "Delete failed"); }
   }
 
-  return (
-    <Card className="p-5">
+  const content = (
+    <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-700">Guest ID proofs</h3>
+        {embedded
+          ? <span className="text-xs font-medium text-slate-600">Guest ID proofs</span>
+          : <h3 className="text-sm font-semibold text-slate-700">Guest ID proofs</h3>}
         <div>
           <input
             ref={input}
@@ -197,7 +204,7 @@ export function BookingDocuments({ bookingId }: { bookingId: string }) {
       ) : docs.length === 0 ? (
         <p className="text-sm text-slate-400">No ID proofs attached yet.</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${embedded ? "" : "lg:grid-cols-5"}`}>
           {docs.map((d) => {
             const url = `/api/admin/bookings/${bookingId}/documents/${d.id}`;
             const isImage = d.mimeType.startsWith("image/");
@@ -233,6 +240,14 @@ export function BookingDocuments({ bookingId }: { bookingId: string }) {
           })}
         </ul>
       )}
-    </Card>
+
+      {embedded && (
+        <p className="mt-3 text-xs text-slate-400">Adding or deleting an ID proof here is saved straight away — you don&apos;t need to press Save changes.</p>
+      )}
+    </>
   );
+
+  return embedded
+    ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">{content}</div>
+    : <Card className="p-5">{content}</Card>;
 }

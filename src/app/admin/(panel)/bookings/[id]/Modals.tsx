@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Btn, Modal, Field, inputCls, api } from "@/components/admin/ui";
+import { BookingDocuments } from "@/components/admin/IdProofs";
 
 export function Info({ k, v }: { k: string; v: React.ReactNode }) {
   return (
@@ -349,6 +350,7 @@ export function EditBookingModal({
             />
           </Field>
         </div>
+        <BookingDocuments bookingId={bookingId} embedded />
         <Field label="Notes">
           <textarea
             rows={2} value={String(f.notes)}

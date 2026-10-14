@@ -32,6 +32,9 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
   const [payModal, setPayModal] = useState<null | "payment" | "refund">(null);
   const [cancelModal, setCancelModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
+  // Bumped when the Edit modal closes so the page's ID-proofs card refetches
+  // any files added/deleted inside the modal.
+  const [docsVersion, setDocsVersion] = useState(0);
   const [deleteModal, setDeleteModal] = useState(false);
   const [expenseModal, setExpenseModal] = useState(false);
   const [editPayment, setEditPayment] = useState<any>(null);
@@ -150,7 +153,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
       </div>
 
       {/* ID proofs — personal data, so only for roles that can manage bookings */}
-      {canManage && <BookingDocuments bookingId={id} />}
+      {canManage && <BookingDocuments key={docsVersion} bookingId={id} />}
 
       {/* Payments ledger */}
       <Card className="overflow-hidden">
@@ -222,7 +225,7 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
       )}
       {editModal && (
         <EditBookingModal booking={b} villas={villas} bookingId={id}
-          onClose={() => setEditModal(false)}
+          onClose={() => { setEditModal(false); setDocsVersion((v) => v + 1); }}
           onSaved={() => { setEditModal(false); load(); }} />
       )}
       {deleteModal && (
