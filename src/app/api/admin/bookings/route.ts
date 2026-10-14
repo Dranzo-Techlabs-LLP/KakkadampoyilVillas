@@ -75,10 +75,12 @@ export async function POST(req: NextRequest) {
     const ref = await bookingRef();
     const res = await exec(
       `INSERT INTO bookings
-        (reference, villa_id, guest_name, guest_phone, guest_phone2, guest_email, check_in, check_out,
+        (reference, villa_id, guest_name, guest_phone, guest_phone2, guest_email,
+         guest_location, b2b_details, check_in, check_out,
          adults, children, status, total_amount, source, notes, created_by)
        VALUES
-        (:ref, :villaId, :guestName, :guestPhone, :guestPhone2, :guestEmail, :checkIn, :checkOut,
+        (:ref, :villaId, :guestName, :guestPhone, :guestPhone2, :guestEmail,
+         :guestLocation, :b2bDetails, :checkIn, :checkOut,
          :adults, :children, :status, :totalAmount, :source, :notes, :uid)`,
       {
         ref,
@@ -87,6 +89,8 @@ export async function POST(req: NextRequest) {
         guestPhone: b.guestPhone ?? null,
         guestPhone2: b.guestPhone2 ?? null,
         guestEmail: b.guestEmail ?? null,
+        guestLocation: b.guestLocation ? String(b.guestLocation).trim().slice(0, 255) : null,
+        b2bDetails: b.b2bDetails ? String(b.b2bDetails).trim().slice(0, 500) : null,
         checkIn: b.checkIn,
         checkOut: b.checkOut,
         adults: b.adults ?? 1,

@@ -57,19 +57,24 @@ console.log("Applying schema…");
 await conn.query(schema);
 console.log("Schema applied.");
 
-// Idempotent add of users.villa_id for DBs that predate the Owner role.
+// Idempotent column adds for DBs created before these columns existed.
 // MySQL doesn't support IF NOT EXISTS on ADD COLUMN, so we swallow the
 // ER_DUP_FIELDNAME error when the column is already there.
-try {
-  await conn.query(
-    `ALTER TABLE users ADD COLUMN villa_id INT NULL DEFAULT NULL AFTER role_id`
-  );
-  console.log("Added users.villa_id column.");
-} catch (e) {
-  if (e && e.code === "ER_DUP_FIELDNAME") {
-    console.log("users.villa_id already present — skipping.");
-  } else {
-    throw e;
+const COLUMN_MIGRATIONS = [
+  ["users", "villa_id", "INT NULL DEFAULT NULL AFTER role_id"],
+  ["bookings", "guest_location", "VARCHAR(255) NULL DEFAULT NULL AFTER guest_email"],
+  ["bookings", "b2b_details", "VARCHAR(500) NULL DEFAULT NULL AFTER guest_location"],
+];
+for (const [table, column, ddl] of COLUMN_MIGRATIONS) {
+  try {
+    await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${ddl}`);
+    console.log(`Added ${table}.${column} column.`);
+  } catch (e) {
+    if (e && e.code === "ER_DUP_FIELDNAME") {
+      console.log(`${table}.${column} already present — skipping.`);
+    } else {
+      throw e;
+    }
   }
 }
 

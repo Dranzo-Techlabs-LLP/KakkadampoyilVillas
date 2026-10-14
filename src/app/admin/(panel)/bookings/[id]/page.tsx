@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Btn, Badge, fmtMoney, fmtDate, nights, api } from "@/components/admin/ui";
 import { useCan } from "@/components/admin/AdminShell";
+import { BookingDocuments } from "@/components/admin/IdProofs";
 import { ArrowLeft, Plus, RotateCcw, XCircle, Pencil, Trash2, FileText, Receipt } from "lucide-react";
 import {
   Info,
@@ -107,6 +108,8 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
             <Info k="Phone" v={b.guest_phone || "—"} />
             <Info k="Alternate phone" v={b.guest_phone2 || "—"} />
             <Info k="Email" v={b.guest_email || "—"} />
+            <Info k="Guest location" v={b.guest_location || "—"} />
+            <Info k="B2B team" v={b.b2b_details || "—"} />
             {b.notes && <div className="col-span-2"><Info k="Notes" v={b.notes} /></div>}
             {b.cancel_reason && <div className="col-span-2"><Info k="Cancellation reason" v={b.cancel_reason} /></div>}
           </dl>
@@ -145,6 +148,9 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
           </div>
         </Card>
       </div>
+
+      {/* ID proofs — personal data, so only for roles that can manage bookings */}
+      {canManage && <BookingDocuments bookingId={id} />}
 
       {/* Payments ledger */}
       <Card className="overflow-hidden">

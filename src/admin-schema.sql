@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   guest_phone   VARCHAR(40) DEFAULT NULL,
   guest_phone2  VARCHAR(40) DEFAULT NULL,
   guest_email   VARCHAR(190) DEFAULT NULL,
+  guest_location VARCHAR(255) DEFAULT NULL,
+  b2b_details   VARCHAR(500) DEFAULT NULL,
   check_in      DATE NOT NULL,
   check_out     DATE NOT NULL,
   adults        INT NOT NULL DEFAULT 1,
@@ -103,6 +105,26 @@ CREATE TABLE IF NOT EXISTS bookings (
   INDEX idx_villa_dates (villa_id, check_in, check_out),
   INDEX idx_status (status),
   INDEX idx_check_in (check_in)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- guest_location / b2b_details: CREATE TABLE above covers fresh DBs; for
+-- existing DBs scripts/admin-setup.mjs adds them with a duplicate-safe ALTER.
+
+-- ───────────────────────────────── guest ID proofs (stored in-DB so they
+-- survive app redeploys and are shared by every environment on this DB)
+CREATE TABLE IF NOT EXISTS booking_documents (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id  INT NOT NULL,
+  kind        VARCHAR(30) NOT NULL DEFAULT 'id_proof',
+  file_name   VARCHAR(255) NOT NULL,
+  mime_type   VARCHAR(100) NOT NULL,
+  size_bytes  INT NOT NULL,
+  data        MEDIUMBLOB NOT NULL,
+  uploaded_by INT DEFAULT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (booking_id)  REFERENCES bookings(id) ON DELETE CASCADE,
+  FOREIGN KEY (uploaded_by) REFERENCES users(id)    ON DELETE SET NULL,
+  INDEX idx_booking (booking_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ───────────────────────────────── invoice settings (single row)

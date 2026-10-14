@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Card, Btn, Badge, Modal, Field, inputCls, fmtMoney, fmtDate, nights, api } from "@/components/admin/ui";
 import { useCan } from "@/components/admin/AdminShell";
+import { IdProofPicker, uploadDocument } from "@/components/admin/IdProofs";
 import { Plus, Search, Filter } from "lucide-react";
 
 export default function BookingsPage() {
@@ -122,8 +123,9 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
     villaId: villas[0]?.id || "", guestName: "", guestPhone: "", guestPhone2: "", guestEmail: "",
     checkIn: "", checkOut: "", adults: 2, children: 0, status: "confirmed",
     totalAmount: "", advance: "", advanceMethod: "cash", advanceB2B: "",
-    source: "direct", notes: "",
+    source: "direct", notes: "", guestLocation: "", b2bDetails: "",
   });
+  const [idFiles, setIdFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
@@ -135,7 +137,7 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
   async function save(allowOverlap = false) {
     setSaving(true); setError("");
     try {
-      await api("/api/admin/bookings", {
+      const created = await api("/api/admin/bookings", {
         method: "POST",
         body: JSON.stringify({ ...f, villaId: Number(f.villaId), adults: Number(f.adults),
           children: Number(f.children), totalAmount: Number(f.totalAmount || 0),
@@ -143,6 +145,17 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
           advanceB2B: Number(f.advanceB2B || 0),
           allowOverlap }),
       });
+      // The booking exists now; attach ID proofs one by one. A failed upload
+      // must not lose the booking, so report it and let them retry from the
+      // booking page instead of showing a form error.
+      const failed: string[] = [];
+      for (const file of idFiles) {
+        try { await uploadDocument(created.id, file); }
+        catch (e) { failed.push(e instanceof Error ? e.message : file.name); }
+      }
+      if (failed.length) {
+        alert(`Booking ${created.reference} was created, but some ID proofs could not be uploaded:\n\n${failed.join("\n")}\n\nYou can add them from the booking page.`);
+      }
       onSaved();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed";
@@ -181,6 +194,9 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
           <Field label="Email">
             <input type="email" value={f.guestEmail} onChange={(e) => set("guestEmail", e.target.value)} className={inputCls} />
           </Field>
+          <Field label="Guest location">
+            <input value={f.guestLocation} onChange={(e) => set("guestLocation", e.target.value)} className={inputCls} maxLength={255} placeholder="City / address the guest is from" />
+          </Field>
           <Field label="Source">
             <input value={f.source} onChange={(e) => set("source", e.target.value)} className={inputCls} placeholder="direct, WhatsApp, OTA…" />
           </Field>
@@ -209,6 +225,10 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
           </Field>
           <div className="sm:col-span-2">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+              <Field label="B2B team details">
+                <input value={f.b2bDetails} onChange={(e) => set("b2bDetails", e.target.value)}
+                  className={inputCls} maxLength={500} placeholder="Partner / team name, contact number" />
+              </Field>
               <Field label="B2B commission (₹)">
                 <input
                   type="number" min={0} value={f.advanceB2B}
@@ -232,13 +252,16 @@ function NewBookingModal({ villas, onClose, onSaved }: { villas: any[]; onClose:
             </div>
           </div>
         </div>
+        <IdProofPicker files={idFiles} onChange={setIdFiles} />
         <Field label="Notes">
           <textarea rows={2} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={inputCls} />
         </Field>
         {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <Btn variant="outline" onClick={onClose}>Cancel</Btn>
-          <Btn type="submit" disabled={saving}>{saving ? "Saving…" : "Create booking"}</Btn>
+          <Btn type="submit" disabled={saving}>
+            {saving ? (idFiles.length ? "Saving & uploading…" : "Saving…") : "Create booking"}
+          </Btn>
         </div>
       </form>
     </Modal>

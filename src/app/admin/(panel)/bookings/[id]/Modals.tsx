@@ -193,6 +193,8 @@ export function EditBookingModal({
     guestPhone: booking.guest_phone || "",
     guestPhone2: booking.guest_phone2 || "",
     guestEmail: booking.guest_email || "",
+    guestLocation: booking.guest_location || "",
+    b2bDetails: booking.b2b_details || "",
     checkIn: String(booking.check_in || "").slice(0, 10),
     checkOut: String(booking.check_out || "").slice(0, 10),
     adults: booking.adults,
@@ -295,7 +297,14 @@ export function EditBookingModal({
               className={inputCls}
             />
           </Field>
-          <div />
+          <Field label="Guest location">
+            <input
+              value={String(f.guestLocation)} maxLength={255}
+              placeholder="City / address the guest is from"
+              onChange={(e) => set("guestLocation", e.target.value)}
+              className={inputCls}
+            />
+          </Field>
           <Field label="Check-in" required>
             <input
               type="date" value={String(f.checkIn)} required
@@ -328,6 +337,14 @@ export function EditBookingModal({
             <input
               type="number" min={0} value={String(f.totalAmount)}
               onChange={(e) => set("totalAmount", e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="B2B team details">
+            <input
+              value={String(f.b2bDetails)} maxLength={500}
+              placeholder="Partner / team name, contact number"
+              onChange={(e) => set("b2bDetails", e.target.value)}
               className={inputCls}
             />
           </Field>

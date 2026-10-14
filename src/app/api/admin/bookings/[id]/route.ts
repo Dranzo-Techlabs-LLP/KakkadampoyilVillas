@@ -66,9 +66,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       guestEmail: "guest_email", checkIn: "check_in", checkOut: "check_out",
       adults: "adults", children: "children", status: "status",
       totalAmount: "total_amount", source: "source", notes: "notes", villaId: "villa_id",
+      guestLocation: "guest_location", b2bDetails: "b2b_details",
     };
+    // Column widths — clamp so an over-long value can't fail the UPDATE.
+    const maxLen: Record<string, number> = { guestLocation: 255, b2bDetails: 500 };
     for (const [k, col] of Object.entries(map)) {
-      if (k in b) { fields.push(`${col} = :${k}`); p[k] = b[k]; }
+      if (!(k in b)) continue;
+      fields.push(`${col} = :${k}`);
+      p[k] = k in maxLen
+        ? (b[k] ? String(b[k]).trim().slice(0, maxLen[k]) : null)
+        : b[k];
     }
     if (!fields.length) return err("Nothing to update");
 
